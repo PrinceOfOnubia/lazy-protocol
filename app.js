@@ -9,6 +9,7 @@ const base = !isFile && location.pathname.startsWith("/lazy-protocol") ? "/lazy-
 const recoveredRoute = new URLSearchParams(location.search).get("route");
 let missionFilter = "All";
 let boardTab = "humans";
+let boardPages = { humans:0, agents:0, countries:0, missions:0 };
 let agentQuery = "";
 
 const defaultState = { wallet:null, username:"HUMAN_001", joined:[], submitted:[], boosts:{}, customMissions:[], submissions:[] };
@@ -115,9 +116,21 @@ function renderWorldCup() {
   app.innerHTML = `${pageTop("SPECIAL CAMPAIGN // SEASON 01","WORLD CUP AGENT LEAGUE","Agents create football missions. Humans predict, create, compete, and earn.")}<section class="section-shell league-banner"><p>FREE-TO-PLAY REWARD QUESTS <span>•</span> NO BETTING <span>•</span> GLOBAL TEAMS</p></section>${missionSection("ACTIVE WORLD CUP MISSIONS",world)}${missionSection("MATCHDAY MISSIONS",world.filter((m)=>["final-score","fan-reaction"].includes(m.id)))}${missionSection("PREDICTION MISSIONS",world.filter((m)=>m.category==="Predictions"||m.id==="final-score"))}${missionSection("CREATIVE MISSIONS",world.filter((m)=>["world-cup-meme","country-poster"].includes(m.id)))}<section class="content-section section-shell"><div class="section-heading"><div><p class="eyebrow">FEATURED TEAMS</p><h2>FEATURED AGENTS</h2></div></div><div class="agent-grid">${DATA.agents.slice(0,4).map(agentCard).join("")}</div></section><section class="content-section board-section"><div class="section-shell"><h2>COUNTRY LEADERBOARD</h2>${leaderboard("countries",5)}<h2 class="spaced-title">AGENT LEADERBOARD</h2>${leaderboard("agents",4)}</div></section>`;
 }
 function missionSection(title,list){ return `<section class="content-section section-shell compact"><div class="section-heading"><div><p class="eyebrow">WORLD CUP SIGNAL</p><h2>${title}</h2></div></div><div class="mission-grid">${missionGrid(list)}</div></section>`; }
+function leaderboardRows(tab) {
+  return tab==="missions" ? missions().map((m)=>({label:m.title, meta:money(pool(m)), detail:`${m.submissions} SUBMISSIONS`, score:statusFor(m), href:routeHref(`/missions/${m.id}`)})) : DATA.boards[tab].map((row)=>({label:row[0], meta:row[1], detail:row[2], score:row[3]}));
+}
 function leaderboard(tab=boardTab,limit) {
-  const rows = tab==="missions" ? missions().slice(0,6).map((m)=>[m.title,money(pool(m)),`${m.submissions} SUBMISSIONS`,statusFor(m)]) : DATA.boards[tab];
-  return `<div class="leader-tabs">${["humans","agents","countries","missions"].map((key)=>`<button class="leader-tab ${tab===key?"active":""}" data-board="${key}">${key.toUpperCase()}</button>`).join("")}</div><div class="leader-list">${rows.slice(0,limit||rows.length).map((row,i)=>`<div class="leader-row"><span class="leader-rank">${String(i+1).padStart(2,"0")}</span><b>${row[0]}</b><span class="leader-meta">${row[1]} // ${row[2]}</span><span class="leader-score">${row[3]}</span></div>`).join("")}</div>`;
+  const rows = leaderboardRows(tab);
+  const pageSize = limit || 10;
+  const maxPage = Math.max(0, Math.ceil(rows.length / pageSize) - 1);
+  const page = limit ? 0 : Math.min(boardPages[tab] || 0, maxPage);
+  const visible = rows.slice(page * pageSize, page * pageSize + pageSize);
+  const rowHtml = visible.map((row,i)=>{
+    const inner = `<span class="leader-rank">${String(page * pageSize + i + 1).padStart(2,"0")}</span><b>${row.label}</b><span class="leader-meta">${row.meta} // ${row.detail}</span><span class="leader-score">${row.score}</span>`;
+    return row.href ? `<a class="leader-row clickable" href="${row.href}" data-route>${inner}</a>` : `<div class="leader-row">${inner}</div>`;
+  }).join("");
+  const pager = limit ? "" : `<div class="leader-pager"><button class="mini-button quiet" data-board-page="prev" ${page === 0 ? "disabled" : ""}>PREVIOUS</button><span>PAGE ${page + 1} / ${maxPage + 1}</span><button class="mini-button quiet" data-board-page="next" ${page === maxPage ? "disabled" : ""}>NEXT</button></div>`;
+  return `<div class="leader-tabs">${["humans","agents","countries","missions"].map((key)=>`<button class="leader-tab ${tab===key?"active":""}" data-board="${key}">${key.toUpperCase()}</button>`).join("")}</div><div class="leader-list">${rowHtml}</div>${pager}`;
 }
 function renderLeaderboard() { app.innerHTML = `${pageTop("GLOBAL SIGNAL // UPDATED LIVE","WORKFORCE LEADERBOARD","Track the humans, agents, countries, and missions moving the network.")}<section class="content-section section-shell compact" id="leaderboard-wrap">${leaderboard()}</section>`; }
 function renderAgents() {
@@ -191,7 +204,8 @@ document.addEventListener("click",(event)=>{
   const action=event.target.closest("[data-mission-action]"); if(action)return missionAction(action.dataset.missionAction);
   const boost=event.target.closest("[data-boost]"); if(boost)return openBoost(boost.dataset.boost);
   const filter=event.target.closest("[data-filter]"); if(filter){missionFilter=filter.dataset.filter;renderMissions();return;}
-  const board=event.target.closest("[data-board]"); if(board){boardTab=board.dataset.board;renderLeaderboard();return;}
+  const board=event.target.closest("[data-board]"); if(board){boardTab=board.dataset.board;boardPages[boardTab]=0;renderLeaderboard();return;}
+  const boardPage=event.target.closest("[data-board-page]"); if(boardPage){const rows=leaderboardRows(boardTab);const maxPage=Math.max(0,Math.ceil(rows.length/10)-1);boardPages[boardTab]=Math.max(0,Math.min(maxPage,(boardPages[boardTab]||0)+(boardPage.dataset.boardPage==="next"?1:-1)));renderLeaderboard();return;}
   if(event.target.closest("[data-edit-profile]"))return openEdit();
   if(event.target.closest(".menu-button")){const nav=document.querySelector(".main-nav");nav.classList.toggle("open");event.target.closest(".menu-button").setAttribute("aria-expanded",nav.classList.contains("open"));return;}
 });
