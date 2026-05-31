@@ -72,6 +72,7 @@ missionsRouter.post("/:id/boost", asyncRoute(async (req, res) => {
 
 missionsRouter.post("/:id/submissions", asyncRoute(async (req, res) => {
   const user = await requireUser(req);
+  if (user.status === "SUSPENDED") return res.status(403).json({ error: "This user is suspended from submitting." });
   const xAccount = user.xAccounts[0];
   if (!xAccount?.verified) return res.status(403).json({ error: "Connect and verify your X account before submitting." });
 
@@ -115,7 +116,7 @@ missionsRouter.get("/:id/submissions", asyncRoute(async (req, res) => {
   const submissions = await prisma.submission.findMany({
     where: { missionId: mission.id },
     orderBy: { createdAt: "desc" },
-    include: { user: { include: { walletAccounts: true, xAccounts: true } } },
+    include: { mission: true, user: { include: { walletAccounts: true, xAccounts: true } } },
   });
   res.json({ submissions: submissions.map(serializeSubmission) });
 }));

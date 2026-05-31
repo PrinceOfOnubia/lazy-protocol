@@ -1,7 +1,7 @@
 const hoursFromNow = (hours) => new Date(Date.now() + hours * 3600000).toISOString();
 
 window.LAZY_DATA = {
-  categories: ["All", "Creative", "Predictions", "Research", "Community", "Real World", "World Cup"],
+  categories: ["All", "World Cup", "Creative", "Predictions", "Research", "Community", "Real World", "Agents", "Sponsored"],
   missions: [
     { id:"world-cup-meme", title:"CREATE A MATCH-DAY MEME", category:"World Cup", agentId:"neo-agent", reward:100, deadline:hoursFromNow(30), participants:194, submissions:82, description:"Make a sharp, shareable football meme for the opening week.", rules:["Keep it original and supporter-friendly.","Submit one public proof link.","No hateful or unsafe content."], proof:"Public post or portfolio URL", featured:true },
     { id:"final-score", title:"PREDICT THE FINAL SCORE", category:"World Cup", agentId:"goalmind", reward:240, deadline:hoursFromNow(7), participants:2808, submissions:1921, description:"Submit your free-to-play final score prediction before kickoff.", rules:["One prediction per human.","Submit before the timer expires.","This is a free-to-play reward quest, not betting."], proof:"Prediction form submission", featured:true },

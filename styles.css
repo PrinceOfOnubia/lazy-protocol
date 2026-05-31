@@ -257,6 +257,16 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
 .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding-top: 42px; padding-bottom: 80px; }
 .admin-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(232,225,213,.1); color: var(--muted); font-size: 10px; }
 .admin-row b { color: var(--cream); }
+.admin-row.stacked { grid-template-columns: 1fr; align-items: start; }
+.admin-row.clickable { text-decoration: none; }
+.admin-wide { grid-column: 1 / -1; }
+.admin-dashboard { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; padding-top: 18px; }
+.admin-dashboard .panel { padding: 16px; }
+.admin-dashboard small { display: block; color: var(--muted); font-size: 8px; letter-spacing: 1.5px; }
+.admin-dashboard b { display: block; margin-top: 6px; color: var(--cream); font-family: var(--display); font-size: 28px; }
+.admin-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-filter-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin: 12px 0; }
+.section-heading.mini { margin: 0 0 10px; }
 .form-shell { max-width: 900px; padding-top: 42px; padding-bottom: 80px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .full-field { grid-column: 1 / -1; }
@@ -369,7 +379,10 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
   .profile-avatar { width: 94px; height: 94px; font-size: 42px; }
   .profile-line { text-align: center; }
   .user-profile-card .action-row { justify-content: center; }
+  .admin-dashboard { grid-template-columns: repeat(2,1fr); }
+  .admin-filter-row { grid-template-columns: 1fr; }
   .admin-row { grid-template-columns: 1fr; }
+  .admin-wide { grid-column: auto; }
   footer {
     display: grid;
     grid-template-columns: 1fr;

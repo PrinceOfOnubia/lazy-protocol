@@ -20,6 +20,7 @@ export function publicUser(user: User & { walletAccounts?: WalletAccount[]; xAcc
     wallet: wallet?.address || null,
     username: user.username,
     avatarUrl: user.avatarUrl || null,
+    status: user.status || "ACTIVE",
     xUserId: x?.xUserId || null,
     xHandle: x?.handle || null,
     xDisplayName: x?.displayName || null,
@@ -36,6 +37,7 @@ export function serializeSubmission(submission: DetailedSubmission) {
     id: submission.id,
     missionId: submission.mission?.slug || submission.missionId,
     missionTitle: submission.mission?.title || "",
+    missionCategory: submission.mission?.category || "",
     title: submission.title,
     description: submission.description,
     proofUrl: submission.proofUrl,
@@ -45,6 +47,13 @@ export function serializeSubmission(submission: DetailedSubmission) {
     user: submission.user?.username || wallet,
     xHandle,
     status: submission.status,
+    adminNote: submission.adminNote || null,
+    payoutAmount: submission.payoutAmount === null ? null : Number(submission.payoutAmount || 0),
+    payoutWallet: submission.payoutWallet || wallet,
+    payoutTxHash: submission.payoutTxHash || null,
+    payoutStatus: submission.payoutStatus || "UNPAID",
+    payoutNote: submission.payoutNote || null,
+    paidAt: submission.paidAt?.toISOString() || null,
     createdAt: submission.createdAt.toISOString(),
     created: submission.createdAt.toISOString(),
   };
@@ -52,6 +61,8 @@ export function serializeSubmission(submission: DetailedSubmission) {
 
 export function statusFor(mission: Pick<Mission, "status" | "deadline">) {
   if (mission.status === "COMPLETED") return "Completed";
+  if (mission.status === "UNDER_REVIEW") return "Under Review";
+  if (mission.status === "REMOVED") return "Removed";
   if (mission.status === "EXPIRED" || mission.deadline.getTime() <= Date.now()) return "Expired";
   if (mission.deadline.getTime() - Date.now() < 8 * 3600000) return "Ending Soon";
   return "Open";
