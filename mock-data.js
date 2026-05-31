@@ -34,3 +34,9 @@ window.LAZY_DATA = {
     { missionId:"country-poster", user:"@mila", title:"Nigeria Matchday Poster", description:"Poster study with a bold home-kit palette.", proof:"https://example.com/proof/poster", created:"31 MIN AGO" },
   ]
 };
+
+window.LAZY_DATA.missions = window.LAZY_DATA.missions.map((mission) => ({
+  ...mission,
+  rules: mission.rules.includes("Your X post must tag @LazyProtocol.") ? mission.rules : [...mission.rules, "Your X post must tag @LazyProtocol."],
+  proof: mission.proof.includes("@LazyProtocol") ? mission.proof : `${mission.proof} tagging @LazyProtocol`,
+}));

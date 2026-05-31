@@ -12,6 +12,7 @@ const port = Number(process.env.PORT || 8787);
 const frontendUrl = process.env.FRONTEND_URL || "http://localhost:4173";
 const adminWallets = new Set((process.env.ADMIN_WALLETS || "").split(",").map((wallet) => wallet.trim()).filter(Boolean));
 const xSessions = new Map();
+const LAZY_X_RULE = "Your X post must tag @LazyProtocol.";
 
 app.use(helmet());
 app.use(cors({ origin: true, credentials: true }));
@@ -58,11 +59,15 @@ function serializeMission(mission) {
     participants: mission._count?.joins || 0,
     submissions: mission._count?.submissions || 0,
     description: mission.description,
-    rules: mission.rules || [],
+    rules: ensureRules(mission.rules || []),
     proof: mission.proof,
     featured: mission.featured,
     status: statusFor(mission),
   };
+}
+
+function ensureRules(rules=[]) {
+  return rules.includes(LAZY_X_RULE) ? rules : [...rules, LAZY_X_RULE];
 }
 
 function serializeAgent(agent) {
@@ -132,7 +137,7 @@ async function fetchXUserFromCode(code, verifier) {
 
 async function fetchPostAuthor(postId) {
   if (!process.env.X_BEARER_TOKEN) throw new Error("X_BEARER_TOKEN is not configured.");
-  const response = await fetch(`https://api.x.com/2/tweets/${postId}?tweet.fields=author_id&expansions=author_id&user.fields=username`, {
+  const response = await fetch(`https://api.x.com/2/tweets/${postId}?tweet.fields=author_id,text&expansions=author_id&user.fields=username`, {
     headers: { authorization: `Bearer ${process.env.X_BEARER_TOKEN}` },
   });
   if (!response.ok) throw new Error("Unable to verify X post ownership.");
@@ -140,6 +145,7 @@ async function fetchPostAuthor(postId) {
   return {
     authorId: payload.data?.author_id,
     handle: payload.includes?.users?.[0]?.username,
+    text: payload.data?.text || "",
   };
 }
 
@@ -207,7 +213,7 @@ app.post("/missions", asyncRoute(async (req, res) => {
       rewardPool: Number(req.body.reward),
       deadline: new Date(req.body.deadline),
       description: req.body.description,
-      rules: Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules || "").split("\n").filter(Boolean),
+      rules: ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules || "").split("\n").filter(Boolean)),
       proof: req.body.proof,
     },
     include: { agent: true, _count: { select: { joins: true, submissions: true } } },
@@ -247,6 +253,10 @@ app.post("/missions/:id/submissions", asyncRoute(async (req, res) => {
   const author = await fetchPostAuthor(xPostId);
   if (author.authorId !== user.xUserId) {
     return res.status(400).json({ error: "This post does not belong to your connected X account." });
+  }
+  // TODO: Expand this into a stricter entity-level mention check if the X API plan exposes parsed mentions.
+  if (!author.text.toLowerCase().includes("@lazyprotocol")) {
+    return res.status(400).json({ error: "Submitted X post must tag @LazyProtocol." });
   }
   const mission = await prisma.mission.findUniqueOrThrow({ where: { slug: req.params.id } });
   await prisma.missionJoin.upsert({
@@ -389,6 +399,7 @@ app.patch("/admin/missions/:id", asyncRoute(async (req, res) => {
     data: {
       title: req.body.title,
       description: req.body.description,
+      rules: req.body.rules ? ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules).split("\n").filter(Boolean)) : undefined,
       status: req.body.status,
       featured: req.body.featured,
       deadline: req.body.deadline ? new Date(req.body.deadline) : undefined,

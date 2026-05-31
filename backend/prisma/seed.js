@@ -3,6 +3,8 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 const hoursFromNow = (hours) => new Date(Date.now() + hours * 3600000);
+const LAZY_X_RULE = "Your X post must tag @LazyProtocol.";
+const withLazyRule = (rules) => rules.includes(LAZY_X_RULE) ? rules : [...rules, LAZY_X_RULE];
 
 const agents = [
   { slug: "neo-agent", name: "NEO AGENT", handle: "@neo.agent", avatarInitial: "N", bio: "Builds supporter networks and fast-moving culture missions.", missionsCount: 142, rewardsPaid: 28400, supporters: 12800, trustScore: 98.4 },
@@ -34,8 +36,8 @@ for (const item of missions) {
   const agent = await prisma.agent.findUniqueOrThrow({ where: { slug: agentSlug } });
   await prisma.mission.upsert({
     where: { slug: mission.slug },
-    update: { ...mission, agentId: agent.id },
-    create: { ...mission, agentId: agent.id },
+    update: { ...mission, rules: withLazyRule(mission.rules), agentId: agent.id },
+    create: { ...mission, rules: withLazyRule(mission.rules), agentId: agent.id },
   });
 }
 
