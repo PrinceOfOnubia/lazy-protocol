@@ -1,25 +1,42 @@
 CREATE TYPE "MissionStatus" AS ENUM ('OPEN', 'ENDING_SOON', 'EXPIRED', 'COMPLETED');
 CREATE TYPE "SubmissionStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'WINNER');
-CREATE TYPE "ModerationActionType" AS ENUM ('MISSION_CREATED', 'MISSION_EDITED', 'MISSION_EXPIRED', 'SUBMISSION_APPROVED', 'SUBMISSION_REJECTED', 'WINNER_MARKED', 'MISSION_FEATURED', 'AGENT_MANAGED');
+CREATE TYPE "LeaderboardKind" AS ENUM ('HUMAN', 'AGENT', 'COUNTRY', 'MISSION');
+CREATE TYPE "AdminActionType" AS ENUM ('MISSION_CREATED', 'MISSION_EDITED', 'MISSION_EXPIRED', 'SUBMISSION_APPROVED', 'SUBMISSION_REJECTED', 'WINNER_MARKED', 'AGENT_MANAGED');
 
-CREATE TABLE "User" (
+CREATE TABLE "users" (
   "id" TEXT NOT NULL,
-  "wallet" TEXT NOT NULL,
   "username" TEXT,
   "avatarUrl" TEXT,
-  "xUserId" TEXT,
-  "xHandle" TEXT,
-  "xDisplayName" TEXT,
-  "xProfileImage" TEXT,
-  "xVerified" BOOLEAN NOT NULL DEFAULT false,
   "rewardsEarned" DECIMAL(12,2) NOT NULL DEFAULT 0,
-  "leaderboardPts" INTEGER NOT NULL DEFAULT 0,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
-  CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+  CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "Agent" (
+CREATE TABLE "wallet_accounts" (
+  "id" TEXT NOT NULL,
+  "userId" TEXT NOT NULL,
+  "address" TEXT NOT NULL,
+  "chain" TEXT NOT NULL DEFAULT 'solana',
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "wallet_accounts_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE "x_accounts" (
+  "id" TEXT NOT NULL,
+  "userId" TEXT NOT NULL,
+  "xUserId" TEXT NOT NULL,
+  "handle" TEXT NOT NULL,
+  "displayName" TEXT,
+  "profileImage" TEXT,
+  "verified" BOOLEAN NOT NULL DEFAULT true,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "x_accounts_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE "agents" (
   "id" TEXT NOT NULL,
   "slug" TEXT NOT NULL,
   "name" TEXT NOT NULL,
@@ -33,10 +50,10 @@ CREATE TABLE "Agent" (
   "trustScore" DECIMAL(5,2) NOT NULL DEFAULT 0,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
-  CONSTRAINT "Agent_pkey" PRIMARY KEY ("id")
+  CONSTRAINT "agents_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "Mission" (
+CREATE TABLE "missions" (
   "id" TEXT NOT NULL,
   "slug" TEXT NOT NULL,
   "title" TEXT NOT NULL,
@@ -53,18 +70,18 @@ CREATE TABLE "Mission" (
   "createdById" TEXT,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
-  CONSTRAINT "Mission_pkey" PRIMARY KEY ("id")
+  CONSTRAINT "missions_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "MissionJoin" (
+CREATE TABLE "mission_joins" (
   "id" TEXT NOT NULL,
   "userId" TEXT NOT NULL,
   "missionId" TEXT NOT NULL,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT "MissionJoin_pkey" PRIMARY KEY ("id")
+  CONSTRAINT "mission_joins_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "Submission" (
+CREATE TABLE "submissions" (
   "id" TEXT NOT NULL,
   "userId" TEXT NOT NULL,
   "missionId" TEXT NOT NULL,
@@ -80,42 +97,59 @@ CREATE TABLE "Submission" (
   "rejectionReason" TEXT,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
-  CONSTRAINT "Submission_pkey" PRIMARY KEY ("id")
+  CONSTRAINT "submissions_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "RewardBoost" (
+CREATE TABLE "reward_boosts" (
   "id" TEXT NOT NULL,
   "userId" TEXT NOT NULL,
   "missionId" TEXT NOT NULL,
   "amount" DECIMAL(12,2) NOT NULL,
   "txSignature" TEXT,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT "RewardBoost_pkey" PRIMARY KEY ("id")
+  CONSTRAINT "reward_boosts_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "ModerationAction" (
+CREATE TABLE "leaderboard_points" (
+  "id" TEXT NOT NULL,
+  "kind" "LeaderboardKind" NOT NULL,
+  "points" INTEGER NOT NULL,
+  "label" TEXT NOT NULL,
+  "userId" TEXT,
+  "missionId" TEXT,
+  "country" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "leaderboard_points_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE "admin_actions" (
   "id" TEXT NOT NULL,
   "adminUserId" TEXT,
-  "type" "ModerationActionType" NOT NULL,
+  "type" "AdminActionType" NOT NULL,
   "targetType" TEXT NOT NULL,
   "targetId" TEXT NOT NULL,
   "reason" TEXT,
   "metadata" JSONB,
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT "ModerationAction_pkey" PRIMARY KEY ("id")
+  CONSTRAINT "admin_actions_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "User_wallet_key" ON "User"("wallet");
-CREATE UNIQUE INDEX "User_xUserId_key" ON "User"("xUserId");
-CREATE UNIQUE INDEX "Agent_slug_key" ON "Agent"("slug");
-CREATE UNIQUE INDEX "Mission_slug_key" ON "Mission"("slug");
-CREATE UNIQUE INDEX "MissionJoin_userId_missionId_key" ON "MissionJoin"("userId", "missionId");
+CREATE UNIQUE INDEX "wallet_accounts_address_key" ON "wallet_accounts"("address");
+CREATE UNIQUE INDEX "x_accounts_xUserId_key" ON "x_accounts"("xUserId");
+CREATE UNIQUE INDEX "agents_slug_key" ON "agents"("slug");
+CREATE UNIQUE INDEX "missions_slug_key" ON "missions"("slug");
+CREATE UNIQUE INDEX "mission_joins_userId_missionId_key" ON "mission_joins"("userId", "missionId");
 
-ALTER TABLE "Mission" ADD CONSTRAINT "Mission_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "Agent"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "MissionJoin" ADD CONSTRAINT "MissionJoin_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "MissionJoin" ADD CONSTRAINT "MissionJoin_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "Mission"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "Submission" ADD CONSTRAINT "Submission_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "Submission" ADD CONSTRAINT "Submission_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "Mission"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "RewardBoost" ADD CONSTRAINT "RewardBoost_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "RewardBoost" ADD CONSTRAINT "RewardBoost_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "Mission"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "ModerationAction" ADD CONSTRAINT "ModerationAction_adminUserId_fkey" FOREIGN KEY ("adminUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "wallet_accounts" ADD CONSTRAINT "wallet_accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "x_accounts" ADD CONSTRAINT "x_accounts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "missions" ADD CONSTRAINT "missions_agentId_fkey" FOREIGN KEY ("agentId") REFERENCES "agents"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "missions" ADD CONSTRAINT "missions_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "mission_joins" ADD CONSTRAINT "mission_joins_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "mission_joins" ADD CONSTRAINT "mission_joins_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "missions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "submissions" ADD CONSTRAINT "submissions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "submissions" ADD CONSTRAINT "submissions_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "missions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "reward_boosts" ADD CONSTRAINT "reward_boosts_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "reward_boosts" ADD CONSTRAINT "reward_boosts_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "missions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "leaderboard_points" ADD CONSTRAINT "leaderboard_points_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "leaderboard_points" ADD CONSTRAINT "leaderboard_points_missionId_fkey" FOREIGN KEY ("missionId") REFERENCES "missions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "admin_actions" ADD CONSTRAINT "admin_actions_adminUserId_fkey" FOREIGN KEY ("adminUserId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
