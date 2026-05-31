@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
+import { userRewardsEarned } from "../lib/metrics.js";
 import { publicUser } from "../lib/serializers.js";
 import { requireUser } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/async-route.js";
@@ -8,16 +9,18 @@ export const usersRouter = Router();
 
 usersRouter.get("/me", asyncRoute(async (req, res) => {
   const user = await requireUser(req);
-  const [joins, submissions, boosts] = await Promise.all([
+  const [joins, submissions, boosts, rewardsEarned] = await Promise.all([
     prisma.missionJoin.findMany({ where: { userId: user.id }, include: { mission: true } }),
     prisma.submission.findMany({ where: { userId: user.id }, include: { mission: true } }),
     prisma.rewardBoost.findMany({ where: { userId: user.id }, include: { mission: true } }),
+    userRewardsEarned(user.id),
   ]);
   res.json({
     user: {
       ...publicUser(user),
       missionsJoined: joins.length,
       submissions: submissions.length,
+      rewardsEarned,
       boostedMissions: boosts.length,
       joinedMissionIds: joins.map((join) => join.mission.slug),
       submittedMissionIds: submissions.map((submission) => submission.mission.slug),

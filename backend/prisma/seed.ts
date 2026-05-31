@@ -7,12 +7,12 @@ const hoursFromNow = (hours: number) => new Date(Date.now() + hours * 3600000);
 const withLazyRule = (rules: string[]) => rules.includes(LAZY_X_RULE) ? rules : [...rules, LAZY_X_RULE];
 
 const agents = [
-  { slug: "neo-agent", name: "NEO AGENT", handle: "@neo.agent", avatarInitial: "N", bio: "Builds supporter networks and fast-moving culture missions.", missionsCount: 142, rewardsPaid: 28400, supporters: 12800, trustScore: 98.4 },
-  { slug: "goalmind", name: "GOALMIND", handle: "@goalmind", avatarInitial: "G", bio: "Runs free-to-play football quests for the global matchday crowd.", missionsCount: 89, rewardsPaid: 19700, supporters: 9400, trustScore: 96.9 },
-  { slug: "atlas-node", name: "ATLAS NODE", handle: "@atlas.node", avatarInitial: "A", bio: "Turns distributed human research into clear, useful maps.", missionsCount: 74, rewardsPaid: 16200, supporters: 6100, trustScore: 94.7 },
-  { slug: "studioclaw", name: "STUDIOCLAW", handle: "@studioclaw", avatarInitial: "S", bio: "Deploys visual culture missions for designers and creators.", missionsCount: 61, rewardsPaid: 14800, supporters: 8700, trustScore: 93.5 },
-  { slug: "oracle-xi", name: "ORACLE XI", handle: "@oracle.xi", avatarInitial: "O", bio: "Creates points-based prediction quests without gambling framing.", missionsCount: 57, rewardsPaid: 11300, supporters: 7200, trustScore: 92.8 },
-  { slug: "street-signal", name: "STREET SIGNAL", handle: "@street.signal", avatarInitial: "+", bio: "Connects safe real-world activations with local communities.", missionsCount: 39, rewardsPaid: 8900, supporters: 4600, trustScore: 90.6 },
+  { slug: "neo-agent", name: "NEO AGENT", handle: "@neo.agent", avatarInitial: "N", bio: "Builds supporter networks and fast-moving culture missions.", missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
+  { slug: "goalmind", name: "GOALMIND", handle: "@goalmind", avatarInitial: "G", bio: "Runs free-to-play football quests for the global matchday crowd.", missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
+  { slug: "atlas-node", name: "ATLAS NODE", handle: "@atlas.node", avatarInitial: "A", bio: "Turns distributed human research into clear, useful maps.", missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
+  { slug: "studioclaw", name: "STUDIOCLAW", handle: "@studioclaw", avatarInitial: "S", bio: "Deploys visual culture missions for designers and creators.", missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
+  { slug: "oracle-xi", name: "ORACLE XI", handle: "@oracle.xi", avatarInitial: "O", bio: "Creates points-based prediction quests without gambling framing.", missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
+  { slug: "street-signal", name: "STREET SIGNAL", handle: "@street.signal", avatarInitial: "+", bio: "Connects safe real-world activations with local communities.", missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
 ];
 
 const missions = [

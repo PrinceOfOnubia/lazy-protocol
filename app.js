@@ -253,6 +253,12 @@ function actionLabel(item) {
   return "JOIN MISSION";
 }
 function actionHref(item) { return state.submitted.includes(item.id) ? `/missions/${item.id}#submissions` : `/missions/${item.id}`; }
+function totalRewardsPaid() {
+  return agents().reduce((sum, item) => sum + Number(item.rewardsPaid || 0), 0);
+}
+function totalHumansJoined() {
+  return missions().reduce((sum, item) => sum + Number(item.participants || 0), 0);
+}
 function showToast(message) {
   toast.textContent = message; toast.classList.add("show");
   setTimeout(() => toast.classList.remove("show"), 3200);
@@ -303,9 +309,9 @@ function heroSlideMarkup() {
   const topMission = [...missions()].sort((a,b)=>pool(b)-pool(a))[0] || DATA.missions[0];
   const neo = agent("neo-agent");
   const slides = [
-    `<div class="hero-slide active" data-hero-panel="0"><p class="eyebrow">LAZY PROTOCOL v0.2 <span>//</span> HUMAN LAYER ONLINE</p><h1><span class="lazy-glow">LAZY</span><span class="outline">PROTOCOL</span></h1><p class="hero-tagline">TURN HUMAN ATTENTION INTO AN ONCHAIN WORKFORCE.</p><p class="hero-copy">AI agents create missions. Humans complete them. Rewards settle onchain.</p><div class="hero-stats"><div><small>OPEN MISSIONS:</small><strong>${missions().filter((m)=>statusFor(m)!=="Expired").length}</strong></div><div><small>REWARDS PAID:</small><strong>$184K</strong></div><div><small>HUMANS ONLINE:</small><strong>2,401</strong></div></div><div class="hero-actions"><a class="button primary" href="${routeHref("/missions")}" data-route>EXPLORE MISSIONS</a><a class="button secondary" href="${routeHref("/missions/create")}" data-route>CREATE MISSION</a></div></div>`,
+    `<div class="hero-slide active" data-hero-panel="0"><p class="eyebrow">LAZY PROTOCOL v0.2 <span>//</span> HUMAN LAYER ONLINE</p><h1><span class="lazy-glow">LAZY</span><span class="outline">PROTOCOL</span></h1><p class="hero-tagline">TURN HUMAN ATTENTION INTO AN ONCHAIN WORKFORCE.</p><p class="hero-copy">AI agents create missions. Humans complete them. Rewards settle onchain.</p><div class="hero-stats"><div><small>OPEN MISSIONS:</small><strong>${missions().filter((m)=>statusFor(m)!=="Expired").length}</strong></div><div><small>REWARDS PAID:</small><strong>${money(totalRewardsPaid())}</strong></div><div><small>HUMANS JOINED:</small><strong>${totalHumansJoined().toLocaleString()}</strong></div></div><div class="hero-actions"><a class="button primary" href="${routeHref("/missions")}" data-route>EXPLORE MISSIONS</a><a class="button secondary" href="${routeHref("/missions/create")}" data-route>CREATE MISSION</a></div></div>`,
     `<div class="hero-slide" data-hero-panel="1"><p class="eyebrow">SEASON 01 <span>//</span> FEATURED CAMPAIGN</p><h1 class="hero-title-alt">WORLD CUP<br><span>AGENT LEAGUE</span></h1><p class="hero-tagline">COMPLETE FOOTBALL MISSIONS.</p><p class="hero-copy">Predict, create, support your agent, and earn rewards.</p><div class="hero-bounty"><small>FEATURED REWARD POOL</small><strong>${money(pool(topMission))}</strong><span data-countdown="${topMission.id}">${countdown(topMission)}</span></div><div class="hero-actions"><a class="button primary" href="${routeHref("/world-cup")}" data-route>ENTER LEAGUE</a></div></div>`,
-    `<div class="hero-slide" data-hero-panel="2"><p class="eyebrow">SPONSORED SIGNAL <span>//</span> WORLD CUP CULTURE</p><h1 class="hero-title-alt">NEO AGENT<br><span>MISSIONS</span></h1><p class="hero-tagline">NEO IS LAUNCHING CULTURE MISSIONS.</p><p class="hero-copy">Join fast-moving World Cup campaigns and turn supporter energy into onchain work.</p><div class="hero-agent-card"><b>${neo.name}</b><span>REWARD POOL ${money(28500)}</span><span>SUPPORTERS ${neo.supporters}</span></div><div class="hero-actions"><a class="button primary" href="${routeHref("/agents/neo")}" data-route>VIEW AGENT</a></div></div>`
+    `<div class="hero-slide" data-hero-panel="2"><p class="eyebrow">SPONSORED SIGNAL <span>//</span> WORLD CUP CULTURE</p><h1 class="hero-title-alt">NEO AGENT<br><span>MISSIONS</span></h1><p class="hero-tagline">NEO IS LAUNCHING CULTURE MISSIONS.</p><p class="hero-copy">Join fast-moving World Cup campaigns and turn supporter energy into onchain work.</p><div class="hero-agent-card"><b>${neo.name}</b><span>REWARDS PAID ${neo.rewards || "$0"}</span><span>SUPPORTERS ${neo.supporters || "0"}</span></div><div class="hero-actions"><a class="button primary" href="${routeHref("/agents/neo")}" data-route>VIEW AGENT</a></div></div>`
   ];
   return `<section class="hero hero-carousel section-shell" data-hero><div class="hero-track" style="transform:translateX(-${heroSlide * 100}%);">${slides.join("")}</div><div class="hero-dots">${slides.map((_,i)=>`<button class="hero-dot ${i===heroSlide?"active":""}" data-hero-slide="${i}" aria-label="Show hero slide ${i+1}"></button>`).join("")}</div></section>`;
 }
@@ -355,7 +361,7 @@ function missionSection(title,list){ return `<section class="content-section sec
 function leaderboardRows(tab) {
   if (liveData.boards && tab !== "missions") return (liveData.boards[tab] || []).map((row)=>({label:row[0], meta:row[1], detail:row[2], score:row[3]}));
   if (liveData.boards && tab === "missions") return (liveData.boards.missions || []).map((row)=>({ ...row, href: routeHref(row.href) }));
-  return tab==="missions" ? missions().map((m)=>({label:m.title, meta:money(pool(m)), detail:`${m.submissions} SUBMISSIONS`, score:statusFor(m), href:routeHref(`/missions/${m.id}`)})) : DATA.boards[tab].map((row)=>({label:row[0], meta:row[1], detail:row[2], score:row[3]}));
+  return tab==="missions" ? missions().map((m)=>({label:m.title, meta:money(pool(m)), detail:`${m.participants} JOINED // ${m.submissions} SUBMISSIONS`, score:statusFor(m), href:routeHref(`/missions/${m.id}`)})) : DATA.boards[tab].map((row)=>({label:row[0], meta:row[1], detail:row[2], score:row[3]}));
 }
 function leaderboard(tab=boardTab,limit) {
   const rows = leaderboardRows(tab);
@@ -363,10 +369,10 @@ function leaderboard(tab=boardTab,limit) {
   const maxPage = Math.max(0, Math.ceil(rows.length / pageSize) - 1);
   const page = limit ? 0 : Math.min(boardPages[tab] || 0, maxPage);
   const visible = rows.slice(page * pageSize, page * pageSize + pageSize);
-  const rowHtml = visible.map((row,i)=>{
+  const rowHtml = visible.length ? visible.map((row,i)=>{
     const inner = `<span class="leader-rank">${String(page * pageSize + i + 1).padStart(2,"0")}</span><b>${row.label}</b><span class="leader-meta">${row.meta} // ${row.detail}</span><span class="leader-score">${row.score}</span>`;
     return row.href ? `<a class="leader-row clickable" href="${row.href}" data-route>${inner}</a>` : `<div class="leader-row">${inner}</div>`;
-  }).join("");
+  }).join("") : `<div class="empty">${tab === "countries" ? "COUNTRY DATA IS NOT COLLECTED YET." : "NO REAL LEADERBOARD DATA YET."}</div>`;
   const pager = limit ? "" : `<div class="leader-pager"><button class="mini-button quiet" data-board-page="prev" ${page === 0 ? "disabled" : ""}>PREVIOUS</button><span>PAGE ${page + 1} / ${maxPage + 1}</span><button class="mini-button quiet" data-board-page="next" ${page === maxPage ? "disabled" : ""}>NEXT</button></div>`;
   return `<div class="leader-tabs">${["humans","agents","countries","missions"].map((key)=>`<button class="leader-tab ${tab===key?"active":""}" data-board="${key}">${key.toUpperCase()}</button>`).join("")}</div><div class="leader-list">${rowHtml}</div>${pager}`;
 }
@@ -399,7 +405,7 @@ function renderProfile() {
   const xStatus = verifiedX() ? `X VERIFIED <b>@${state.user.xHandle}</b>` : `X NOT CONNECTED <b>REQUIRED ONLY FOR SUBMISSIONS</b>`;
   const xButton = verifiedX() ? `<button class="button secondary" disabled>@${state.user.xHandle}</button>` : `<button class="button secondary" data-connect-x>CONNECT X</button>`;
   const syncNotice = profileSyncWarning ? `<p class="joined-note">${profileSyncWarning}</p>` : "";
-  app.innerHTML=`<section class="agent-profile-strip"><div class="section-shell"><p class="eyebrow">HUMAN PROFILE // ACTIVE</p><article class="panel agent-profile-card user-profile-card">${avatarMarkup()}<div><h2>${state.user?.username || state.username}</h2><span class="handle">${shortWallet()}</span><p class="profile-line">CONNECTED WALLET <b>${state.wallet}</b></p><p class="profile-line">${xStatus}</p>${syncNotice}<div class="action-row"><button class="button primary" data-edit-profile>EDIT PROFILE</button>${xButton}</div></div></article></div></section><section class="section-shell profile-stats"><div><small>MISSIONS JOINED</small><b>${state.user?.missionsJoined ?? joined.length}</b></div><div><small>SUBMISSIONS</small><b>${state.user?.submissions ?? submitted.length}</b></div><div><small>REWARDS EARNED</small><b>${money(state.user?.rewardsEarned ?? 1240)}</b></div><div><small>BOOSTED MISSIONS</small><b>${state.user?.boostedMissions ?? boosted.length}</b></div></section>${profileGroup("ACTIVE MISSIONS",joined)}${profileGroup("SUBMITTED MISSIONS",submitted)}${profileGroup("BOOSTED MISSIONS",boosted)}`;
+  app.innerHTML=`<section class="agent-profile-strip"><div class="section-shell"><p class="eyebrow">HUMAN PROFILE // ACTIVE</p><article class="panel agent-profile-card user-profile-card">${avatarMarkup()}<div><h2>${state.user?.username || state.username}</h2><span class="handle">${shortWallet()}</span><p class="profile-line">CONNECTED WALLET <b>${state.wallet}</b></p><p class="profile-line">${xStatus}</p>${syncNotice}<div class="action-row"><button class="button primary" data-edit-profile>EDIT PROFILE</button>${xButton}</div></div></article></div></section><section class="section-shell profile-stats"><div><small>MISSIONS JOINED</small><b>${state.user?.missionsJoined ?? joined.length}</b></div><div><small>SUBMISSIONS</small><b>${state.user?.submissions ?? submitted.length}</b></div><div><small>REWARDS EARNED</small><b>${money(state.user?.rewardsEarned ?? 0)}</b></div><div><small>BOOSTED MISSIONS</small><b>${state.user?.boostedMissions ?? boosted.length}</b></div></section>${profileGroup("ACTIVE MISSIONS",joined)}${profileGroup("SUBMITTED MISSIONS",submitted)}${profileGroup("BOOSTED MISSIONS",boosted)}`;
 }
 function profileGroup(title,list){return `<section class="content-section section-shell compact"><div class="section-heading"><h2>${title}</h2></div>${list.length?`<div class="mission-grid">${list.map((item)=>missionCard(item)).join("")}</div>`:`<div class="empty">NO ${title.toLowerCase()} YET.</div>`}</section>`;}
 function renderCreate() {

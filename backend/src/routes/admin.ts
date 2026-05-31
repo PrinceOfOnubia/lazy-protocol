@@ -3,6 +3,7 @@ import type { Request } from "express";
 import type { MissionStatus, SubmissionStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { ensureRules, MISSION_CATEGORIES, slugify } from "../lib/constants.js";
+import { serializeAgentsWithMetrics, userRewardsEarned } from "../lib/metrics.js";
 import { serializeAgent, serializeMission, publicUser, serializeSubmission } from "../lib/serializers.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/async-route.js";
@@ -20,13 +21,15 @@ adminRouter.get("/overview", asyncRoute(async (req, res) => {
     prisma.adminAction.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
     prisma.fundingTransaction.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { mission: true } }),
   ]);
+  const agentRows = await serializeAgentsWithMetrics(agents);
+  const userRows = await Promise.all(users.map(async (user) => ({ ...publicUser(user), rewardsEarned: await userRewardsEarned(user.id), missionsJoined: user._count.joins, submissions: user._count.submissions })));
   res.json({
     categories: MISSION_CATEGORIES,
-    users: users.map((user) => ({ ...publicUser(user), missionsJoined: user._count.joins, submissions: user._count.submissions })),
+    users: userRows,
     missions: missions.map(serializeMission),
     submissions: submissions.map(serializeSubmission),
     boosts,
-    agents: agents.map(serializeAgent),
+    agents: agentRows,
     actions,
     fundingTransactions: fundingTransactions.map((tx) => ({
       id: tx.id,
@@ -51,7 +54,7 @@ adminRouter.get("/users", asyncRoute(async (req, res) => {
     orderBy: { createdAt: "desc" },
     include: { walletAccounts: true, xAccounts: true, submissions: true, joins: true, _count: { select: { joins: true, submissions: true, rewardBoosts: true } } },
   });
-  const rows = users.map((user) => {
+  const rows = await Promise.all(users.map(async (user) => {
     const base = publicUser(user);
     const winners = user.submissions.filter((submission) => ["WINNER", "PAID"].includes(submission.status)).length;
     const disqualified = user.submissions.filter((submission) => submission.status === "DISQUALIFIED").length;
@@ -60,12 +63,14 @@ adminRouter.get("/users", asyncRoute(async (req, res) => {
       id: user.id,
       missionsJoined: user._count.joins,
       submissions: user._count.submissions,
+      rewardsEarned: await userRewardsEarned(user.id),
       winners,
       disqualified,
       boosts: user._count.rewardBoosts,
       createdAt: user.createdAt.toISOString(),
     };
-  }).filter((user) => {
+  }));
+  const filtered = rows.filter((user) => {
     const haystack = `${user.wallet || ""} ${user.username || ""} ${user.xHandle || ""}`.toLowerCase();
     if (search && !haystack.includes(search)) return false;
     if (filter === "x-verified") return user.xVerified;
@@ -74,7 +79,7 @@ adminRouter.get("/users", asyncRoute(async (req, res) => {
     if (filter === "active") return user.status === "ACTIVE";
     return true;
   });
-  res.json({ users: rows });
+  res.json({ users: filtered });
 }));
 
 adminRouter.get("/users/:id", asyncRoute(async (req, res) => {
@@ -91,7 +96,7 @@ adminRouter.get("/users/:id", asyncRoute(async (req, res) => {
     },
   });
   res.json({
-    user: publicUser(user),
+    user: { ...publicUser(user), rewardsEarned: await userRewardsEarned(user.id) },
     joins: user.joins.map((join) => ({ id: join.id, missionId: join.mission.slug, missionTitle: join.mission.title, createdAt: join.createdAt.toISOString() })),
     submissions: user.submissions.map(serializeSubmission),
     boosts: user.rewardBoosts.map((boost) => ({ id: boost.id, missionTitle: boost.mission.title, amount: Number(boost.amount), createdAt: boost.createdAt.toISOString() })),

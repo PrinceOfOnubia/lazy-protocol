@@ -26,7 +26,7 @@ export function publicUser(user: User & { walletAccounts?: WalletAccount[]; xAcc
     xDisplayName: x?.displayName || null,
     xProfileImage: x?.profileImage || null,
     xVerified: Boolean(x?.verified),
-    rewardsEarned: Number(user.rewardsEarned || 0),
+    rewardsEarned: 0,
   };
 }
 

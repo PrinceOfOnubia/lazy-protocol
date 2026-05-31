@@ -1,22 +1,48 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
+import { serializeAgentsWithMetrics, userRewardsEarned } from "../lib/metrics.js";
 import { statusFor } from "../lib/serializers.js";
 import { asyncRoute } from "../middleware/async-route.js";
 
 export const leaderboardRouter = Router();
 
 leaderboardRouter.get("/", asyncRoute(async (_req, res) => {
-  const [humans, agents, countries, missions] = await Promise.all([
-    prisma.user.findMany({ include: { walletAccounts: true, _count: { select: { joins: true, submissions: true } } }, take: 50 }),
-    prisma.agent.findMany({ orderBy: { supporters: "desc" }, take: 50 }),
-    prisma.leaderboardPoint.groupBy({ by: ["country"], _sum: { points: true }, where: { kind: "COUNTRY", country: { not: null } }, orderBy: { _sum: { points: "desc" } }, take: 50 }),
-    prisma.mission.findMany({ orderBy: { rewardPool: "desc" }, take: 50, include: { _count: { select: { submissions: true } } } }),
+  const [humans, agents, missions] = await Promise.all([
+    prisma.user.findMany({ include: { walletAccounts: true, submissions: true, _count: { select: { joins: true, submissions: true } } } }),
+    prisma.agent.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.mission.findMany({ orderBy: { rewardPool: "desc" }, take: 50, include: { _count: { select: { joins: true, submissions: true } } } }),
   ]);
 
+  const humansWithPoints = await Promise.all(humans.map(async (user) => {
+    const rewardsEarned = await userRewardsEarned(user.id);
+    const approved = user.submissions.filter((submission) => ["APPROVED", "WINNER", "PAID"].includes(submission.status)).length;
+    const paid = user.submissions.filter((submission) => submission.status === "PAID").length;
+    const points = (user._count.joins * 25) + (user._count.submissions * 100) + (approved * 150) + (paid * 250) + Math.floor(rewardsEarned);
+    return {
+      points,
+      row: [
+        user.username || user.walletAccounts[0]?.address || "HUMAN",
+        `${user._count.joins} JOINED`,
+        `$${rewardsEarned.toLocaleString()} EARNED`,
+        `${points.toLocaleString()} PTS`,
+      ],
+    };
+  }));
+  const agentRows = await serializeAgentsWithMetrics(agents);
+
   res.json({
-    humans: humans.map((u) => [u.username || u.walletAccounts[0]?.address || "HUMAN", `${u._count.joins} JOINED`, `$${Number(u.rewardsEarned).toLocaleString()}`, `${u._count.submissions * 100} PTS`]),
-    agents: agents.map((a) => [a.name, `${a.missionsCount} CREATED`, `$${Number(a.rewardsPaid).toLocaleString()} PAID`, `${a.supporters.toLocaleString()} SUPPORTERS`]),
-    countries: countries.map((c) => [c.country || "GLOBAL", "LIVE", "SUBMISSIONS", `${c._sum.points || 0} PTS`]),
-    missions: missions.map((m) => ({ label: m.title, meta: `$${Number(m.rewardPool).toLocaleString()}`, detail: `${m._count.submissions} SUBMISSIONS`, score: statusFor(m), href: `/missions/${m.slug}` })),
+    humans: humansWithPoints.sort((a, b) => b.points - a.points).slice(0, 50).map((item) => item.row),
+    agents: agentRows
+      .sort((a, b) => b.missionsCreated - a.missionsCreated || b.supportersCount - a.supportersCount || b.rewardsPaid - a.rewardsPaid)
+      .slice(0, 50)
+      .map((agent) => [agent.name, `${agent.missionsCreated} CREATED`, `$${agent.rewardsPaid.toLocaleString()} PAID`, `${agent.supportersCount.toLocaleString()} SUPPORTERS`]),
+    countries: [],
+    missions: missions.map((mission) => ({
+      label: mission.title,
+      meta: `$${Number(mission.rewardPool).toLocaleString()}`,
+      detail: `${mission._count.joins} JOINED // ${mission._count.submissions} SUBMISSIONS`,
+      score: statusFor(mission),
+      href: `/missions/${mission.slug}`,
+    })),
   });
 }));
