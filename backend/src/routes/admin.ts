@@ -11,13 +11,14 @@ export const adminRouter = Router();
 
 adminRouter.get("/overview", asyncRoute(async (req, res) => {
   await requireAdmin(req);
-  const [users, missions, submissions, boosts, agents, actions] = await Promise.all([
+  const [users, missions, submissions, boosts, agents, actions, fundingTransactions] = await Promise.all([
     prisma.user.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { walletAccounts: true, xAccounts: true, _count: { select: { joins: true, submissions: true } } } }),
     prisma.mission.findMany({ orderBy: { createdAt: "desc" }, include: { agent: true, _count: { select: { joins: true, submissions: true } } } }),
     prisma.submission.findMany({ orderBy: { createdAt: "desc" }, include: { user: { include: { walletAccounts: true, xAccounts: true } }, mission: true } }),
     prisma.rewardBoost.findMany({ orderBy: { createdAt: "desc" }, include: { user: { include: { walletAccounts: true } }, mission: true } }),
     prisma.agent.findMany({ orderBy: { createdAt: "desc" }, include: { _count: { select: { missions: true } } } }),
     prisma.adminAction.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
+    prisma.fundingTransaction.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { mission: true } }),
   ]);
   res.json({
     categories: MISSION_CATEGORIES,
@@ -27,6 +28,18 @@ adminRouter.get("/overview", asyncRoute(async (req, res) => {
     boosts,
     agents: agents.map(serializeAgent),
     actions,
+    fundingTransactions: fundingTransactions.map((tx) => ({
+      id: tx.id,
+      txHash: tx.txHash,
+      type: tx.type,
+      missionId: tx.mission?.slug || tx.missionId,
+      missionTitle: tx.mission?.title || "",
+      fromWallet: tx.fromWallet,
+      toWallet: tx.toWallet,
+      amountSol: Number(tx.amountSol || 0),
+      status: tx.status,
+      createdAt: tx.createdAt.toISOString(),
+    })),
   });
 }));
 
@@ -129,6 +142,26 @@ adminRouter.patch("/missions/:id", asyncRoute(async (req, res) => {
   });
   await prisma.adminAction.create({ data: { adminUserId: admin.id, type: "MISSION_EDITED", targetType: "mission", targetId: mission.id } });
   res.json({ mission: serializeMission(mission) });
+}));
+
+adminRouter.patch("/agents/:id", asyncRoute(async (req, res) => {
+  const admin = await requireAdmin(req);
+  const agent = await prisma.agent.update({
+    where: { slug: req.params.id },
+    data: {
+      name: req.body.name,
+      handle: req.body.handle,
+      avatarUrl: req.body.avatarUrl,
+      bio: req.body.bio,
+      category: req.body.category && MISSION_CATEGORIES.includes(String(req.body.category)) ? String(req.body.category) : undefined,
+      ownerWallet: req.body.ownerWallet,
+      approved: req.body.approved === undefined ? undefined : Boolean(req.body.approved),
+      featured: req.body.featured === undefined ? undefined : Boolean(req.body.featured),
+    },
+    include: { _count: { select: { missions: true } } },
+  });
+  await prisma.adminAction.create({ data: { adminUserId: admin.id, type: "AGENT_MANAGED", targetType: "agent", targetId: agent.id } });
+  res.json({ agent: serializeAgent(agent) });
 }));
 
 async function moderateSubmission(req: Request, status: SubmissionStatus, type: "SUBMISSION_APPROVED" | "SUBMISSION_REJECTED" | "WINNER_MARKED" | "SUBMISSION_DISQUALIFIED") {

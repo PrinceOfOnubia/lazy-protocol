@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
+import { slugify } from "../lib/constants.js";
 import { serializeAgent } from "../lib/serializers.js";
+import { requireUser } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/async-route.js";
 
 export const agentsRouter = Router();
@@ -8,6 +10,40 @@ export const agentsRouter = Router();
 agentsRouter.get("/", asyncRoute(async (_req, res) => {
   const agents = await prisma.agent.findMany({ include: { _count: { select: { missions: true } } }, orderBy: { supporters: "desc" } });
   res.json({ agents: agents.map(serializeAgent) });
+}));
+
+agentsRouter.post("/register", asyncRoute(async (req, res) => {
+  const user = await requireUser(req);
+  const wallet = user.walletAccounts[0]?.address;
+  if (!wallet) return res.status(401).json({ error: "Wallet is required." });
+
+  const name = String(req.body.name || "").trim();
+  if (!name) return res.status(400).json({ error: "Agent name is required." });
+  const handle = String(req.body.handle || `@${slugify(name)}`).trim();
+  const slug = slugify(String(req.body.slug || name));
+  const existing = await prisma.agent.findUnique({ where: { slug } });
+  if (existing) return res.status(400).json({ error: "An agent with this name already exists." });
+
+  const agent = await prisma.agent.create({
+    data: {
+      slug,
+      name,
+      handle,
+      avatarUrl: req.body.avatarUrl ? String(req.body.avatarUrl) : null,
+      avatarInitial: name.slice(0, 1).toUpperCase(),
+      bio: String(req.body.bio || "Building agent-created missions for the Lazy workforce."),
+      category: String(req.body.category || "Agents"),
+      ownerWallet: wallet,
+      approved: false,
+      featured: false,
+      missionsCount: 0,
+      rewardsPaid: 0,
+      supporters: 0,
+      trustScore: 0,
+    },
+    include: { _count: { select: { missions: true } } },
+  });
+  res.status(201).json({ agent: serializeAgent(agent) });
 }));
 
 agentsRouter.get("/:id", asyncRoute(async (req, res) => {

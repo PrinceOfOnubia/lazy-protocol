@@ -21,9 +21,11 @@ X_CLIENT_SECRET=
 X_CALLBACK_URL=
 X_BEARER_TOKEN=
 ADMIN_WALLETS=
+SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+REWARD_WALLET=
 ```
 
-Do not invent secret values. X OAuth/API keys and admin wallets must be provided by the project owner.
+Do not invent secret values. X OAuth/API keys, admin wallets, and the protocol reward wallet must be provided by the project owner.
 
 ### Railway CLI Setup
 
@@ -54,6 +56,8 @@ railway variables set X_CLIENT_SECRET=...
 railway variables set X_CALLBACK_URL=https://your-railway-api.up.railway.app/auth/x/callback
 railway variables set X_BEARER_TOKEN=...
 railway variables set ADMIN_WALLETS=wallet1,wallet2
+railway variables set SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+railway variables set REWARD_WALLET=your_protocol_reward_wallet
 ```
 
 Railway Postgres should provide `DATABASE_URL` automatically after adding the database service.
@@ -108,6 +112,7 @@ Set these Vercel environment variables:
 VITE_API_URL=https://your-railway-api.up.railway.app
 VITE_API_BASE_URL=https://your-railway-api.up.railway.app
 VITE_SOLANA_RPC_URL=
+VITE_REWARD_WALLET=
 VITE_NETWORK=devnet
 VITE_APP_NAME=Lazy Protocol
 ```
@@ -118,6 +123,7 @@ Then redeploy production:
 vercel env add VITE_API_URL production
 vercel env add VITE_API_BASE_URL production
 vercel env add VITE_SOLANA_RPC_URL production
+vercel env add VITE_REWARD_WALLET production
 vercel env add VITE_NETWORK production
 vercel env add VITE_APP_NAME production
 vercel --prod

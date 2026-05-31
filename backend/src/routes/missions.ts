@@ -2,8 +2,9 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { ensureRules, slugify } from "../lib/constants.js";
 import { serializeMission, serializeSubmission } from "../lib/serializers.js";
+import { rewardWallet, verifyFundingTx } from "../lib/solana.js";
 import { extractPostId, fetchPostAuthor } from "../lib/x.js";
-import { requireUser } from "../middleware/auth.js";
+import { isAdminWallet, requireUser } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/async-route.js";
 
 export const missionsRouter = Router();
@@ -14,6 +15,10 @@ missionsRouter.get("/", asyncRoute(async (_req, res) => {
     include: { agent: true, _count: { select: { joins: true, submissions: true } } },
   });
   res.json({ missions: missions.map(serializeMission) });
+}));
+
+missionsRouter.get("/funding/config", asyncRoute(async (_req, res) => {
+  res.json({ rewardWallet: rewardWallet() });
 }));
 
 missionsRouter.get("/:id", asyncRoute(async (req, res) => {
@@ -27,21 +32,48 @@ missionsRouter.get("/:id", asyncRoute(async (req, res) => {
 
 missionsRouter.post("/", asyncRoute(async (req, res) => {
   const user = await requireUser(req);
+  const wallet = user.walletAccounts[0]?.address;
+  if (!wallet) return res.status(401).json({ error: "Wallet is required." });
+
   const agent = await prisma.agent.findUniqueOrThrow({ where: { slug: req.body.agentId } });
-  const mission = await prisma.mission.create({
-    data: {
-      slug: req.body.slug || slugify(String(req.body.title)),
-      title: String(req.body.title),
-      category: String(req.body.category),
-      agentId: agent.id,
-      createdById: user.id,
-      rewardPool: Number(req.body.reward),
-      deadline: new Date(req.body.deadline),
-      description: String(req.body.description),
-      rules: ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules || "").split("\n").filter(Boolean)),
-      proof: String(req.body.proof),
-    },
-    include: { agent: true, _count: { select: { joins: true, submissions: true } } },
+  if (!agent.ownerWallet && !isAdminWallet(wallet)) return res.status(403).json({ error: "This agent does not have an owner wallet. Register or claim an agent before creating missions." });
+  if (agent.ownerWallet && agent.ownerWallet !== wallet && !isAdminWallet(wallet)) return res.status(403).json({ error: "Only the agent owner can create missions for this agent." });
+  if (!agent.approved && !isAdminWallet(wallet)) return res.status(403).json({ error: "This agent must be approved before it can create missions." });
+
+  const prizePoolAmountSol = Number(req.body.prizePoolAmountSol ?? req.body.amountSol ?? req.body.reward);
+  if (!Number.isFinite(prizePoolAmountSol) || prizePoolAmountSol <= 0) return res.status(400).json({ error: "Mission prize pool must be funded with SOL." });
+
+  const fundingTxHash = String(req.body.fundingTxHash || req.body.txHash || "");
+  const verified = await verifyFundingTx({ txHash: fundingTxHash, fromWallet: wallet, amountSol: prizePoolAmountSol });
+  const mission = await prisma.$transaction(async (tx) => {
+    const created = await tx.mission.create({
+      data: {
+        slug: req.body.slug || slugify(String(req.body.title)),
+        title: String(req.body.title),
+        category: String(req.body.category),
+        agentId: agent.id,
+        createdById: user.id,
+        rewardPool: prizePoolAmountSol,
+        prizePoolAmountSol,
+        fundingTxHash,
+        funderWallet: wallet,
+        rewardWallet: verified.toWallet,
+        fundingStatus: "CONFIRMED",
+        deadline: new Date(req.body.deadline),
+        description: String(req.body.description),
+        rules: ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules || "").split("\n").filter(Boolean)),
+        proof: String(req.body.proof),
+      },
+      include: { agent: true, _count: { select: { joins: true, submissions: true } } },
+    });
+    await tx.fundingTransaction.create({
+      data: { txHash: fundingTxHash, type: "MISSION_FUND", missionId: created.id, fromWallet: wallet, toWallet: verified.toWallet, amountSol: prizePoolAmountSol, status: "CONFIRMED" },
+    });
+    await tx.agent.update({
+      where: { id: agent.id },
+      data: { missionsCount: { increment: 1 } },
+    });
+    return created;
   });
   res.status(201).json({ mission: serializeMission(mission) });
 }));
@@ -59,11 +91,20 @@ missionsRouter.post("/:id/join", asyncRoute(async (req, res) => {
 
 missionsRouter.post("/:id/boost", asyncRoute(async (req, res) => {
   const user = await requireUser(req);
-  const amount = Number(req.body.amount);
+  const wallet = user.walletAccounts[0]?.address;
+  if (!wallet) return res.status(401).json({ error: "Wallet is required." });
+  const amount = Number(req.body.amountSol ?? req.body.amount);
   if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: "Boost amount must be positive." });
+  const boostTxHash = String(req.body.boostTxHash || req.body.txHash || "");
+  const verified = await verifyFundingTx({ txHash: boostTxHash, fromWallet: wallet, amountSol: amount });
   const mission = await prisma.mission.findUniqueOrThrow({ where: { slug: req.params.id } });
   const boost = await prisma.$transaction(async (tx) => {
-    const created = await tx.rewardBoost.create({ data: { userId: user.id, missionId: mission.id, amount } });
+    await tx.fundingTransaction.create({
+      data: { txHash: boostTxHash, type: "BOOST", missionId: mission.id, fromWallet: wallet, toWallet: verified.toWallet, amountSol: amount, status: "CONFIRMED" },
+    });
+    const created = await tx.rewardBoost.create({
+      data: { userId: user.id, missionId: mission.id, amount, amountSol: amount, txSignature: boostTxHash, boosterWallet: wallet, status: "CONFIRMED" },
+    });
     await tx.mission.update({ where: { id: mission.id }, data: { rewardPool: { increment: amount } } });
     return created;
   });

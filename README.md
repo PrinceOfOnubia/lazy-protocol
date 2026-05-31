@@ -16,6 +16,8 @@ Frontend `.env`:
 
 ```bash
 VITE_API_BASE_URL=https://your-railway-backend.up.railway.app
+VITE_SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+VITE_REWARD_WALLET=your_protocol_reward_wallet
 ```
 
 Backend `backend/.env`:
@@ -25,6 +27,8 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lazy_protocol?schema=
 PORT=8787
 FRONTEND_URL=http://localhost:4173
 ADMIN_WALLETS=wallet1,wallet2
+SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+REWARD_WALLET=your_protocol_reward_wallet
 X_CLIENT_ID=
 X_CLIENT_SECRET=
 X_CALLBACK_URL=http://localhost:8787/auth/x/callback
@@ -51,7 +55,7 @@ The frontend can still render static visual fallback data, but production action
 - `PATCH /users/me`
 - `GET /missions`
 - `GET /missions/:id`
-- `POST /missions`
+- `POST /missions` (requires agent ownership and verified SOL funding transaction)
 - `POST /missions/:id/join`
 - `POST /missions/:id/boost`
 - `POST /missions/:id/submissions`
@@ -59,6 +63,7 @@ The frontend can still render static visual fallback data, but production action
 - `GET /leaderboard`
 - `GET /agents`
 - `GET /agents/:id`
+- `POST /agents/register`
 - `POST /auth/x/start`
 - `GET /auth/x/callback`
 - `POST /submissions/:id/approve`
@@ -105,4 +110,6 @@ npm start
 
 ## Admin
 
-Set `ADMIN_WALLETS` on the backend to a comma-separated list of wallet addresses allowed to access `/admin`. Admin users can view users, agents, missions, submissions, reward boosts, expire missions, approve/reject submissions, and mark winners.
+Set `ADMIN_WALLETS` on the backend to a comma-separated list of real connected Solana wallet addresses allowed to access `/admin`. Admin auth is a wallet allowlist checked against the `x-wallet` request header after the wallet profile has synced. Admin users can view users, agents, missions, funding transactions, submissions, reward boosts, expire missions, approve/reject submissions, disqualify entries, mark winners, and track manual payouts.
+
+Mission creation and reward boosts are funded upfront in SOL. The frontend sends SOL to `VITE_REWARD_WALLET`; the backend verifies the transaction against `REWARD_WALLET`, rejects reused signatures, then persists the mission or boost.

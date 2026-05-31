@@ -36,6 +36,18 @@ enum UserStatus {
   SUSPENDED
 }
 
+enum FundingTransactionType {
+  MISSION_FUND
+  BOOST
+}
+
+enum FundingStatus {
+  PENDING
+  FUNDED
+  CONFIRMED
+  FAILED
+}
+
 enum LeaderboardKind {
   HUMAN
   AGENT
@@ -115,6 +127,10 @@ model Agent {
   avatarUrl      String?
   avatarInitial  String?
   bio            String
+  category       String    @default("Agents")
+  ownerWallet    String?
+  approved       Boolean   @default(true)
+  featured       Boolean   @default(false)
   missionsCount  Int       @default(0)
   rewardsPaid    Decimal   @default(0) @db.Decimal(12, 2)
   supporters     Int       @default(0)
@@ -135,6 +151,11 @@ model Mission {
   rules          String[]
   proof          String
   rewardPool     Decimal       @db.Decimal(12, 2)
+  prizePoolAmountSol Decimal?   @db.Decimal(18, 9)
+  fundingTxHash  String?
+  funderWallet   String?
+  rewardWallet   String?
+  fundingStatus  FundingStatus @default(PENDING)
   deadline       DateTime
   status         MissionStatus @default(OPEN)
   featured       Boolean       @default(false)
@@ -149,6 +170,7 @@ model Mission {
   submissions    Submission[]
   rewardBoosts   RewardBoost[]
   points         LeaderboardPoint[]
+  fundingTransactions FundingTransaction[]
 
   @@map("missions")
 }
@@ -199,12 +221,30 @@ model RewardBoost {
   userId      String
   missionId   String
   amount      Decimal  @db.Decimal(12, 2)
+  amountSol   Decimal? @db.Decimal(18, 9)
   txSignature String?
+  boosterWallet String?
+  status      FundingStatus @default(PENDING)
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   mission     Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
 
   @@map("reward_boosts")
+}
+
+model FundingTransaction {
+  id        String                 @id @default(cuid())
+  txHash    String                 @unique
+  type      FundingTransactionType
+  missionId String?
+  fromWallet String
+  toWallet  String
+  amountSol Decimal                @db.Decimal(18, 9)
+  status    FundingStatus          @default(CONFIRMED)
+  createdAt DateTime               @default(now())
+  mission   Mission?               @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@map("funding_transactions")
 }
 
 model LeaderboardPoint {
