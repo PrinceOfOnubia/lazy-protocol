@@ -251,20 +251,20 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
   .brand-mark { width: 21px; height: 21px; font-size: 10px; }
   .wallet-button { padding: 9px 10px; }
   .wallet-dot { width: 6px; height: 6px; }
-  .hero { min-height: calc(100svh - 62px); max-height: 640px; padding-top: 28px; padding-bottom: 24px; justify-content: center; }
-  .hero::before { width: 92vw; height: 80px; top: 31%; }
-  .hero h1 { width: 100%; font-size: clamp(64px, 23vw, 92px); line-height: .78; letter-spacing: -1px; }
-  .hero h1 .outline { -webkit-text-stroke: 1.2px var(--cream); transform: scaleX(.74); transform-origin: center; }
-  .hero .eyebrow { margin-bottom: 10px; font-size: 8px; letter-spacing: 2px; }
-  .hero-tagline { margin: 16px 0 8px; font-size: 9px; letter-spacing: 2.6px; line-height: 1.65; }
-  .hero-copy { max-width: 320px; margin-bottom: 0; font-size: 10px; line-height: 1.55; }
-  .hero-stats { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 9px 12px; margin: 15px 0 20px; justify-items: stretch; }
-  .hero-stats div { min-width: 0; padding: 10px 8px; }
+  .hero { min-height: calc(100svh - 62px); max-height: 690px; padding-top: 34px; padding-bottom: 26px; justify-content: center; }
+  .hero::before { width: 94vw; height: 92px; top: 30%; }
+  .hero h1 { width: 100%; font-size: clamp(74px, 25.5vw, 102px); line-height: .8; letter-spacing: -1px; }
+  .hero h1 .outline { -webkit-text-stroke: 1.35px var(--cream); transform: scaleX(.76); transform-origin: center; }
+  .hero .eyebrow { margin-bottom: 12px; font-size: 8.5px; letter-spacing: 2.2px; }
+  .hero-tagline { margin: 18px 0 9px; font-size: 10px; letter-spacing: 2.8px; line-height: 1.7; }
+  .hero-copy { max-width: 340px; margin-bottom: 0; font-size: 11px; line-height: 1.65; }
+  .hero-stats { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; margin: 17px 0 22px; justify-items: stretch; }
+  .hero-stats div { min-width: 0; padding: 11px 8px; }
   .hero-stats div:nth-child(3) { grid-column: 1 / -1; justify-self: center; width: 48%; min-width: 178px; }
-  .hero-stats small { font-size: 7px; letter-spacing: 1px; }
-  .hero-stats strong { margin-left: 5px; font-size: 12px; }
+  .hero-stats small { font-size: 7.5px; letter-spacing: 1px; }
+  .hero-stats strong { margin-left: 5px; font-size: 13px; }
   .hero-actions { width: 100%; flex-direction: column; gap: 8px; }
-  .hero-actions .button { min-height: 48px; }
+  .hero-actions .button { min-height: 50px; }
   .mission-grid, .agent-grid { grid-template-columns: 1fr; }
   .mission-card, .mission-card.featured { grid-column: auto; min-height: auto; padding: 18px; }
   .mission-card.featured h3, .mission-card h3 { min-height: auto; margin-top: 17px; font-size: 29px; line-height: 1.06; }
@@ -304,5 +304,26 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
   .agent-profile-bio { margin-top: 8px; font-size: 10px; line-height: 1.55; }
   .agent-profile-card .agent-stats { grid-template-columns: 1fr 1fr; gap: 14px 18px; margin: 22px 0 0; }
   .agent-profile-card .agent-stats b { font-size: 18px; }
-  footer { padding: 20px 16px; }
+  footer {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-content: center;
+    justify-items: center;
+    align-items: center;
+    gap: 16px;
+    padding: 28px 16px calc(34px + env(safe-area-inset-bottom));
+    text-align: center;
+    background: linear-gradient(180deg, rgba(8,9,9,.96), rgba(5,6,6,1));
+  }
+  footer .brand { justify-content: center; font-size: 18px; }
+  footer .brand-mark { width: 22px; height: 22px; font-size: 10px; }
+  .footer-links {
+    justify-content: center;
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    gap: 12px 18px;
+    width: 100%;
+    max-width: 320px;
+  }
+  footer p { margin: 0; max-width: 260px; line-height: 1.7; }
 }
