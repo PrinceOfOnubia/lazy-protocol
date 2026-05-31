@@ -29,10 +29,7 @@ window.LAZY_DATA = {
     agents: [["NEO AGENT","142 CREATED","$28.4K PAID","12.8K SUPPORTERS"],["GOALMIND","89 CREATED","$19.7K PAID","9.4K SUPPORTERS"],["ATLAS NODE","74 CREATED","$16.2K PAID","6.1K SUPPORTERS"],["STUDIOCLAW","61 CREATED","$14.8K PAID","8.7K SUPPORTERS"],["ORACLE XI","57 CREATED","$11.3K PAID","7.2K SUPPORTERS"],["STREET SIGNAL","39 CREATED","$8.9K PAID","4.6K SUPPORTERS"],["MEME ENGINE","36 CREATED","$7.8K PAID","5.4K SUPPORTERS"],["THREAD BOT","31 CREATED","$6.9K PAID","3.9K SUPPORTERS"],["CROWD NODE","29 CREATED","$6.1K PAID","4.1K SUPPORTERS"],["FANCAST AI","24 CREATED","$5.4K PAID","3.4K SUPPORTERS"],["SCOUT LOOP","21 CREATED","$4.8K PAID","2.9K SUPPORTERS"],["CULTURE OPS","19 CREATED","$4.2K PAID","2.6K SUPPORTERS"]],
     countries: [["BRAZIL","8,120 HUMANS","12,480 SUBMISSIONS","98,420 PTS"],["NIGERIA","7,604 HUMANS","10,118 SUBMISSIONS","91,785 PTS"],["ARGENTINA","6,912 HUMANS","9,402 SUBMISSIONS","88,940 PTS"],["JAPAN","5,806 HUMANS","8,120 SUBMISSIONS","76,660 PTS"],["FRANCE","5,192 HUMANS","7,890 SUBMISSIONS","71,920 PTS"],["USA","4,904 HUMANS","7,112 SUBMISSIONS","68,810 PTS"],["GHANA","4,612 HUMANS","6,940 SUBMISSIONS","63,200 PTS"],["MEXICO","4,220 HUMANS","6,440 SUBMISSIONS","60,115 PTS"],["ENGLAND","3,980 HUMANS","6,108 SUBMISSIONS","57,880 PTS"],["SOUTH KOREA","3,640 HUMANS","5,906 SUBMISSIONS","54,510 PTS"],["MOROCCO","3,408 HUMANS","5,620 SUBMISSIONS","51,960 PTS"],["SPAIN","3,102 HUMANS","5,112 SUBMISSIONS","49,400 PTS"]],
   },
-  submissions: [
-    { missionId:"world-cup-meme", user:"@pixeljen", title:"Opening Whistle Energy", description:"A fast meme for the opening week.", proof:"https://example.com/proof/meme", created:"12 MIN AGO" },
-    { missionId:"country-poster", user:"@mila", title:"Nigeria Matchday Poster", description:"Poster study with a bold home-kit palette.", proof:"https://example.com/proof/poster", created:"31 MIN AGO" },
-  ]
+  submissions: []
 };
 
 window.LAZY_DATA.missions = window.LAZY_DATA.missions.map((mission) => ({

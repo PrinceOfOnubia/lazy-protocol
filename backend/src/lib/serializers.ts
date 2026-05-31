@@ -1,4 +1,4 @@
-import type { Agent, Mission, User, WalletAccount, XAccount } from "@prisma/client";
+import type { Agent, Mission, Submission, User, WalletAccount, XAccount } from "@prisma/client";
 import { ensureRules } from "./constants.js";
 
 type CountedMission = Mission & {
@@ -7,6 +7,10 @@ type CountedMission = Mission & {
 };
 
 type CountedAgent = Agent & { _count?: { missions?: number } };
+type DetailedSubmission = Submission & {
+  mission?: Mission | null;
+  user?: (User & { walletAccounts?: WalletAccount[]; xAccounts?: XAccount[] }) | null;
+};
 
 export function publicUser(user: User & { walletAccounts?: WalletAccount[]; xAccounts?: XAccount[] }) {
   const wallet = user.walletAccounts?.[0];
@@ -15,13 +19,34 @@ export function publicUser(user: User & { walletAccounts?: WalletAccount[]; xAcc
     id: user.id,
     wallet: wallet?.address || null,
     username: user.username,
-    avatarUrl: x?.profileImage || user.avatarUrl || null,
+    avatarUrl: user.avatarUrl || null,
     xUserId: x?.xUserId || null,
     xHandle: x?.handle || null,
     xDisplayName: x?.displayName || null,
     xProfileImage: x?.profileImage || null,
     xVerified: Boolean(x?.verified),
     rewardsEarned: Number(user.rewardsEarned || 0),
+  };
+}
+
+export function serializeSubmission(submission: DetailedSubmission) {
+  const wallet = submission.user?.walletAccounts?.[0]?.address || null;
+  const xHandle = submission.xAuthorHandle || submission.user?.xAccounts?.[0]?.handle || null;
+  return {
+    id: submission.id,
+    missionId: submission.mission?.slug || submission.missionId,
+    missionTitle: submission.mission?.title || "",
+    title: submission.title,
+    description: submission.description,
+    proofUrl: submission.proofUrl,
+    postUrl: submission.xPostUrl,
+    xPostUrl: submission.xPostUrl,
+    submitterWallet: wallet,
+    user: submission.user?.username || wallet,
+    xHandle,
+    status: submission.status,
+    createdAt: submission.createdAt.toISOString(),
+    created: submission.createdAt.toISOString(),
   };
 }
 

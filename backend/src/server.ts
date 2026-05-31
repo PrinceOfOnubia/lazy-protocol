@@ -10,6 +10,7 @@ import { missionsRouter } from "./routes/missions.js";
 import { agentsRouter } from "./routes/agents.js";
 import { leaderboardRouter } from "./routes/leaderboard.js";
 import { adminRouter } from "./routes/admin.js";
+import { submissionsRouter } from "./routes/submissions.js";
 
 const app = express();
 const port = Number(process.env.PORT || 8080);
@@ -25,6 +26,7 @@ app.use("/users", usersRouter);
 app.use("/missions", missionsRouter);
 app.use("/agents", agentsRouter);
 app.use("/leaderboard", leaderboardRouter);
+app.use("/submissions", submissionsRouter);
 app.use("/admin", adminRouter);
 
 app.use((err: Error & { status?: number }, _req: Request, res: Response, _next: NextFunction) => {

@@ -16,16 +16,17 @@ let heroSlide = 0;
 let boardTab = "humans";
 let boardPages = { humans:0, agents:0, countries:0, missions:0 };
 let agentQuery = "";
-let liveData = { missions:null, agents:null, boards:null, submissions:{}, admin:null };
+let submissionFilter = "All";
+let liveData = { missions:null, agents:null, boards:null, submissions:{}, globalSubmissions:null, admin:null };
 let touchStartX = 0;
 
-const defaultState = { wallet:null, user:null, username:"HUMAN_001", joined:[], submitted:[], boosts:{}, customMissions:[], submissions:[] };
+const defaultState = { wallet:null, user:null, username:"HUMAN_001", avatarUrl:null, joined:[], submitted:[], boosts:{}, customMissions:[], submissions:[] };
 let state = { ...defaultState, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") };
 
 function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 function money(value) { return `$${Number(value).toLocaleString()}`; }
 function shortWallet() { return state.wallet ? `${state.wallet.slice(0, 4)}...${state.wallet.slice(-4)}` : ""; }
-function userAvatar() { return state.user?.avatarUrl || state.user?.xProfileImage || ""; }
+function userAvatar() { return state.user?.avatarUrl || state.avatarUrl || ""; }
 function avatarSeed() { return (state.wallet || "LAZY").split("").reduce((sum,char)=>sum+char.charCodeAt(0),0); }
 function avatarMarkup(size="large") {
   const image = userAvatar();
@@ -55,6 +56,45 @@ async function api(path, options={}) {
   if (!response.ok) throw new Error(payload.error || "API request failed.");
   return payload;
 }
+async function syncWalletProfile(wallet) {
+  if (!API_BASE) {
+    showToast("Wallet connected. Profile sync unavailable.");
+    return null;
+  }
+  try {
+    const payload = await api("/auth/wallet", { method:"POST", body:JSON.stringify({ wallet }) });
+    state.user = payload.user;
+    state.username = payload.user.username || state.username;
+    save();
+    await refreshRemoteData();
+    return payload.user;
+  } catch (error) {
+    showToast("Wallet connected. Profile sync unavailable.");
+    return null;
+  }
+}
+async function connectWalletLocal() {
+  let wallet = DEMO_WALLET;
+  try {
+    const provider = window.solana;
+    if (provider?.connect) {
+      const response = await provider.connect();
+      wallet = response?.publicKey?.toString?.() || provider.publicKey?.toString?.() || wallet;
+    }
+  } catch (_error) {
+    wallet = DEMO_WALLET;
+  }
+  state.wallet = wallet;
+  state.user = state.user || { wallet, username: state.username, avatarUrl: state.avatarUrl || null, xVerified: false, xHandle: null };
+  state.user.wallet = wallet;
+  state.username = state.user.username || state.username;
+  save();
+  closeModal();
+  updateWalletUI();
+  render();
+  showToast("WALLET CONNECTED");
+  syncWalletProfile(wallet);
+}
 async function refreshRemoteData() {
   if (!API_BASE) return;
   try {
@@ -82,10 +122,15 @@ async function refreshRemoteData() {
 }
 function routeHref(path) { return isFile ? `#${path}` : `${base}${path}`; }
 function routePath() {
-  if (isFile) return location.hash.slice(1) || "/";
+  if (isFile) return (location.hash.slice(1) || "/").split("#")[0] || "/";
   return location.pathname.slice(base.length) || "/";
 }
-function routeHash() { return isFile ? "" : location.hash; }
+function routeHash() {
+  if (!isFile) return location.hash;
+  const hashRoute = location.hash.slice(1);
+  const anchorIndex = hashRoute.indexOf("#");
+  return anchorIndex === -1 ? "" : hashRoute.slice(anchorIndex);
+}
 function scrollToHash(hash=routeHash()) {
   if (!hash) return;
   requestAnimationFrame(() => document.querySelector(hash)?.scrollIntoView({ behavior:"smooth", block:"start" }));
@@ -194,8 +239,19 @@ function renderMissionDetail(id) {
   scrollToHash();
 }
 function submissionFeed(id) {
-  const list = liveData.submissions[id] || [...state.submissions,...DATA.submissions].filter((s)=>s.missionId===id);
-  return list.length ? list.map((s)=>`<article class="submission"><div><b>${s.title}</b><span>${s.user || state.username} ${s.xHandle ? `// @${s.xHandle}` : ""} // ${s.created || "JUST NOW"}</span></div><p>${s.description}</p><a href="${s.proof}" target="_blank">VIEW PROOF →</a></article>`).join("") : `<div class="empty">NO ATTEMPTS YET. BE THE FIRST HUMAN TO SUBMIT.</div>`;
+  const list = liveData.submissions[id] || [];
+  if (list.length) return list.map(submissionCard).join("");
+  return `<div class="empty">${API_BASE ? "NO ATTEMPTS YET. BE THE FIRST HUMAN TO SUBMIT." : "CONNECT THE BACKEND API TO LOAD DATABASE SUBMISSIONS."}</div>`;
+}
+function xPostEmbed(postUrl) {
+  if (!postUrl) return `<div class="x-embed-fallback">NO X POST LINK PROVIDED</div>`;
+  return `<div class="x-embed" data-x-embed><p>LOADING X EMBED...</p><blockquote class="twitter-tweet" data-dnt="true" data-theme="dark"><a href="${postUrl}"></a></blockquote><a class="mini-button quiet x-fallback" href="${postUrl}" target="_blank" rel="noreferrer">VIEW ON X</a></div>`;
+}
+function submissionCard(s) {
+  const postUrl = s.postUrl || s.xPostUrl || s.x || s.proof;
+  const status = String(s.status || "Pending").toUpperCase();
+  const created = s.createdAt || s.created || "JUST NOW";
+  return `<article class="submission-card"><div class="submission-head"><div><p class="eyebrow">${s.missionTitle || s.title || "MISSION ENTRY"}</p><h3>${s.title || "Submission"}</h3></div><span class="status-badge">${status}</span></div>${xPostEmbed(postUrl)}<div class="submission-meta"><span>WALLET ${s.submitterWallet || s.user || "UNKNOWN"}</span><span>X ${s.xHandle ? `@${String(s.xHandle).replace(/^@/,"")}` : "VERIFIED"}</span><span>${new Date(created).toString() === "Invalid Date" ? created : new Date(created).toLocaleString()}</span></div><p>${s.description || ""}</p></article>`;
 }
 function renderWorldCup() {
   const world = missions().filter((m)=>m.category==="World Cup" || m.category==="Predictions");
@@ -221,6 +277,15 @@ function leaderboard(tab=boardTab,limit) {
   return `<div class="leader-tabs">${["humans","agents","countries","missions"].map((key)=>`<button class="leader-tab ${tab===key?"active":""}" data-board="${key}">${key.toUpperCase()}</button>`).join("")}</div><div class="leader-list">${rowHtml}</div>${pager}`;
 }
 function renderLeaderboard() { app.innerHTML = `${pageTop("GLOBAL SIGNAL // UPDATED LIVE","WORKFORCE LEADERBOARD","Track the humans, agents, countries, and missions moving the network.")}<section class="content-section section-shell compact" id="leaderboard-wrap">${leaderboard()}</section>`; }
+function renderSubmissions() {
+  if (API_BASE && !liveData.globalSubmissions) {
+    const params = submissionFilter === "World Cup" ? "?category=World%20Cup" : submissionFilter === "Winners" ? "?status=winners" : submissionFilter === "All" ? "" : `?status=${submissionFilter.toLowerCase()}`;
+    api(`/submissions${params}`).then((payload)=>{ liveData.globalSubmissions=payload.submissions; render(); renderXEmbeds(); }).catch((error)=>showToast(error.message));
+  }
+  const list = liveData.globalSubmissions || [];
+  app.innerHTML = `${pageTop("PROOF STREAM // LIVE","SUBMISSIONS","Watch mission entries from the Lazy workforce.")}<section class="content-section section-shell compact"><div class="filter-row">${["All","Pending","Approved","Winners","World Cup"].map((item)=>`<button class="filter ${item===submissionFilter?"active":""}" data-submission-filter="${item}">${item.toUpperCase()}</button>`).join("")}</div><div class="submission-grid">${list.length ? list.map(submissionCard).join("") : `<div class="empty">${API_BASE ? "NO SUBMISSIONS MATCH THIS FILTER YET." : "CONNECT THE BACKEND API TO LOAD DATABASE SUBMISSIONS."}</div>`}</div></section>`;
+  renderXEmbeds();
+}
 function renderAgents() {
   const visible=DATA.agents.filter((a)=>`${a.name} ${a.bio}`.toLowerCase().includes(agentQuery.toLowerCase()));
   app.innerHTML=`${pageTop("MISSION ARCHITECTS // ACTIVE","AGENT NETWORK","Meet the AI agents creating quests, funding rewards, and coordinating human attention.")}<section class="content-section section-shell compact"><label class="search-label">SEARCH AGENTS<input id="agent-search" value="${agentQuery}" placeholder="SEARCH NAME OR SIGNAL" /></label><div class="agent-grid">${visible.length?visible.map(agentCard).join(""):`<div class="empty">NO AGENTS MATCH THAT SIGNAL.</div>`}</div></section>`;
@@ -231,10 +296,10 @@ function renderAgentDetail(id) {
   app.innerHTML=`<section class="agent-profile-strip"><div class="section-shell"><p class="eyebrow">AGENT PROFILE // ACTIVE</p><article class="panel agent-profile-card"><div class="agent-head large">${avatar}<div><h2>${item.name}</h2><span class="handle">${item.handle}</span><p class="agent-profile-bio">${item.bio}</p></div></div><div class="agent-stats wide"><div><small>MISSIONS CREATED</small><b>${item.missions}</b></div><div><small>REWARDS PAID</small><b>${item.rewards}</b></div><div><small>SUPPORTERS</small><b>${item.supporters}</b></div><div><small>TRUST SCORE</small><b>${item.score}</b></div></div></article></div></section>${missionSection("ACTIVE MISSIONS",created)}`;
 }
 function renderProfile() {
-  if(!state.wallet) return app.innerHTML=`${pageTop("HUMAN PROFILE // LOCKED","CONNECT TO ENTER","Connect a wallet to view your mission activity and manage your human profile.")}<section class="section-shell content-section compact"><button class="button primary" data-open-wallet>CONNECT WALLET</button></section>`;
+  if(!state.wallet) return app.innerHTML=`<section class="agent-profile-strip"><div class="section-shell"><p class="eyebrow">HUMAN PROFILE // LOCKED</p><article class="panel agent-profile-card"><div class="agent-head large"><span class="agent-avatar">H</span><div><h2>CONNECT WALLET</h2><span class="handle">Create your Lazy profile locally.</span><p class="agent-profile-bio">X is only needed when you submit an entry.</p><button class="button primary" data-open-wallet>CONNECT WALLET</button></div></div></article></div></section>`;
   const joined=missions().filter((m)=>state.joined.includes(m.id)); const submitted=missions().filter((m)=>state.submitted.includes(m.id)); const boosted=missions().filter((m)=>state.boosts[m.id]);
-  const connectedX = verifiedX() ? `@${state.user.xHandle} <span class="verified-badge">VERIFIED</span>` : `NOT CONNECTED`;
-  app.innerHTML=`${pageTop("HUMAN PROFILE // CONNECTED",state.user?.username || state.username,`Wallet ${shortWallet()} is linked to this profile.`)}<section class="section-shell profile-card-wrap"><article class="panel user-profile-card">${avatarMarkup()}<div><p class="eyebrow">PROFILE PICTURE</p><h2>${state.user?.username || state.username}</h2><p class="profile-line">CONNECTED WALLET <b>${state.wallet}</b></p><p class="profile-line">CONNECTED X ACCOUNT <b>${connectedX}</b></p><div class="action-row"><button class="button primary" data-connect-x>${verifiedX() ? "X CONNECTED" : "CONNECT X ACCOUNT"}</button><button class="button secondary" data-edit-profile>EDIT PROFILE</button></div></div></article></section><section class="section-shell profile-stats"><div><small>MISSIONS JOINED</small><b>${state.user?.missionsJoined ?? joined.length}</b></div><div><small>SUBMISSIONS</small><b>${state.user?.submissions ?? submitted.length}</b></div><div><small>REWARDS EARNED</small><b>${money(state.user?.rewardsEarned ?? 1240)}</b></div><div><small>BOOSTED MISSIONS</small><b>${state.user?.boostedMissions ?? boosted.length}</b></div></section><section class="section-shell action-row profile-actions"><button class="button secondary" data-disconnect>DISCONNECT</button></section>${profileGroup("ACTIVE MISSIONS",joined)}${profileGroup("SUBMITTED MISSIONS",submitted)}${profileGroup("BOOSTED MISSIONS",boosted)}`;
+  const xStatus = verifiedX() ? `X VERIFIED <b>@${state.user.xHandle}</b>` : `X NOT CONNECTED <b>REQUIRED ONLY FOR SUBMISSIONS</b>`;
+  app.innerHTML=`<section class="agent-profile-strip"><div class="section-shell"><p class="eyebrow">HUMAN PROFILE // ACTIVE</p><article class="panel agent-profile-card user-profile-card">${avatarMarkup()}<div><h2>${state.user?.username || state.username}</h2><span class="handle">${shortWallet()}</span><p class="profile-line">CONNECTED WALLET <b>${state.wallet}</b></p><p class="profile-line">${xStatus}</p><p class="agent-profile-bio">X is only used to verify submissions. Your Lazy avatar is independent.</p><div class="action-row"><button class="button primary" data-edit-profile>EDIT PROFILE</button><button class="button secondary" data-disconnect>DISCONNECT</button></div></div></article></div></section><section class="section-shell profile-stats"><div><small>MISSIONS JOINED</small><b>${state.user?.missionsJoined ?? joined.length}</b></div><div><small>SUBMISSIONS</small><b>${state.user?.submissions ?? submitted.length}</b></div><div><small>REWARDS EARNED</small><b>${money(state.user?.rewardsEarned ?? 1240)}</b></div><div><small>BOOSTED MISSIONS</small><b>${state.user?.boostedMissions ?? boosted.length}</b></div></section>${profileGroup("ACTIVE MISSIONS",joined)}${profileGroup("SUBMITTED MISSIONS",submitted)}${profileGroup("BOOSTED MISSIONS",boosted)}`;
 }
 function profileGroup(title,list){return `<section class="content-section section-shell compact"><div class="section-heading"><h2>${title}</h2></div>${list.length?`<div class="mission-grid">${list.map((item)=>missionCard(item)).join("")}</div>`:`<div class="empty">NO ${title.toLowerCase()} YET.</div>`}</section>`;}
 function renderCreate() {
@@ -249,18 +314,18 @@ function renderAdmin() {
   if (API_BASE && !liveData.admin) api("/admin/overview").then((payload)=>{ liveData.admin=payload; render(); }).catch((error)=>{ app.innerHTML=`${pageTop("ADMIN // ACCESS CHECK","ADMIN PANEL","${error.message}")}<section class="section-shell content-section compact"><button class="button secondary" data-disconnect>DISCONNECT</button></section>`; });
   const admin = liveData.admin;
   if (!admin) return app.innerHTML=`${pageTop("ADMIN // LOADING","ADMIN PANEL","Loading real database data from the Lazy Protocol backend.")}<section class="section-shell content-section compact"><div class="empty">LOADING ADMIN DATA...</div></section>`;
-  app.innerHTML=`${pageTop("ADMIN // DATABASE LIVE","ADMIN PANEL","Manage missions, submissions, agents, users, reward boosts, and moderation actions.")}<section class="section-shell admin-grid"><article class="panel"><h3 class="panel-title">CREATE MISSION</h3><form id="admin-mission-form" class="admin-form"><label>TITLE<input required name="title" placeholder="CREATE A WORLD CUP MEME"></label><label>CATEGORY<input required name="category" placeholder="World Cup"></label><label>AGENT SLUG<input required name="agentId" placeholder="neo-agent"></label><label>REWARD<input required type="number" min="1" name="reward" placeholder="100"></label><label>DEADLINE<input required type="datetime-local" name="deadline"></label><label>DESCRIPTION<textarea required name="description"></textarea></label><label>RULES<textarea required name="rules">${LAZY_X_RULE}</textarea></label><label>PROOF<input required name="proof" value="Public X post URL tagging @LazyProtocol"></label><button class="mini-button primary" type="submit">CREATE</button></form></article><article class="panel"><h3 class="panel-title">MISSIONS</h3>${admin.missions.map((m)=>`<div class="admin-row"><b>${m.title}</b><span>${m.status} // ${money(m.reward)}</span><button class="mini-button quiet" data-admin-expire="${m.id}">EXPIRE</button></div>`).join("")}</article><article class="panel"><h3 class="panel-title">SUBMISSIONS</h3>${admin.submissions.map((s)=>`<div class="admin-row"><b>${s.title}</b><span>${s.status} // ${s.user?.wallet || ""}</span><button class="mini-button quiet" data-admin-approve="${s.id}">APPROVE</button><button class="mini-button quiet" data-admin-reject="${s.id}">REJECT</button><button class="mini-button quiet" data-admin-winner="${s.id}">WINNER</button></div>`).join("") || `<div class="empty">NO SUBMISSIONS YET.</div>`}</article><article class="panel"><h3 class="panel-title">USERS</h3>${admin.users.map((u)=>`<div class="admin-row"><b>${u.username || u.wallet}</b><span>${u.xVerified ? `@${u.xHandle} VERIFIED` : "X NOT VERIFIED"}</span></div>`).join("")}</article><article class="panel"><h3 class="panel-title">REWARD BOOSTS</h3>${admin.boosts.map((b)=>`<div class="admin-row"><b>${b.mission?.title || b.missionId}</b><span>${money(b.amount)} // ${b.user?.wallet || ""}</span></div>`).join("") || `<div class="empty">NO BOOSTS YET.</div>`}</article></section>`;
+  app.innerHTML=`${pageTop("ADMIN // DATABASE LIVE","ADMIN PANEL","Manage missions, submissions, agents, users, reward boosts, and moderation actions.")}<section class="section-shell admin-grid"><article class="panel"><h3 class="panel-title">CREATE MISSION</h3><form id="admin-mission-form" class="admin-form"><label>TITLE<input required name="title" placeholder="CREATE A WORLD CUP MEME"></label><label>CATEGORY<input required name="category" placeholder="World Cup"></label><label>AGENT SLUG<input required name="agentId" placeholder="neo-agent"></label><label>REWARD<input required type="number" min="1" name="reward" placeholder="100"></label><label>DEADLINE<input required type="datetime-local" name="deadline"></label><label>DESCRIPTION<textarea required name="description"></textarea></label><label>RULES<textarea required name="rules">${LAZY_X_RULE}</textarea></label><label>PROOF<input required name="proof" value="Public X post URL tagging @LazyProtocol"></label><button class="mini-button primary" type="submit">CREATE</button></form></article><article class="panel"><h3 class="panel-title">MISSIONS</h3>${admin.missions.map((m)=>`<div class="admin-row"><b>${m.title}</b><span>${m.status} // ${money(m.reward)}</span><button class="mini-button quiet" data-admin-expire="${m.id}">EXPIRE</button></div>`).join("")}</article><article class="panel"><h3 class="panel-title">SUBMISSIONS</h3>${admin.submissions.map((s)=>`<div class="admin-row"><b>${s.title}</b><span>${s.status} // ${s.submitterWallet || s.user || ""}</span><button class="mini-button quiet" data-admin-approve="${s.id}">APPROVE</button><button class="mini-button quiet" data-admin-reject="${s.id}">REJECT</button><button class="mini-button quiet" data-admin-winner="${s.id}">WINNER</button></div>`).join("") || `<div class="empty">NO SUBMISSIONS YET.</div>`}</article><article class="panel"><h3 class="panel-title">USERS</h3>${admin.users.map((u)=>`<div class="admin-row"><b>${u.username || u.wallet}</b><span>${u.xVerified ? `@${u.xHandle} VERIFIED` : "X NOT VERIFIED"}</span></div>`).join("")}</article><article class="panel"><h3 class="panel-title">REWARD BOOSTS</h3>${admin.boosts.map((b)=>`<div class="admin-row"><b>${b.mission?.title || b.missionId}</b><span>${money(b.amount)} // ${b.user?.wallet || ""}</span></div>`).join("") || `<div class="empty">NO BOOSTS YET.</div>`}</article></section>`;
 }
 function renderNotFound(){app.innerHTML=`${pageTop("404 // SIGNAL LOST","PAGE NOT FOUND","That route is outside the current mission map.")}<section class="section-shell content-section compact"><a class="button primary" href="${routeHref("/")}" data-route>RETURN HOME</a></section>`;}
 
 function modal(content){ modalRoot.innerHTML=`<div class="modal-backdrop"><section class="modal" role="dialog" aria-modal="true"><button class="modal-close" data-close-modal aria-label="Close">×</button>${content}</section></div>`; }
 function openWallet(){
-  modal(`<p class="eyebrow">HUMAN AUTHENTICATION</p><h2>CONNECT WALLET</h2><p>Connect a wallet to create, join, boost, and submit persisted mission activity.</p><button class="wallet-option" data-connect><span>◈ PHANTOM</span><em>${API_BASE ? "API" : "CONFIG REQUIRED"}</em></button><button class="wallet-option" data-connect><span>□ SOLFLARE</span><em>${API_BASE ? "API" : "CONFIG REQUIRED"}</em></button>`);
+  modal(`<p class="eyebrow">HUMAN AUTHENTICATION</p><h2>CONNECT WALLET</h2><p>Wallet connects locally first. Backend profile sync happens afterward when available.</p><button class="wallet-option" data-connect><span>◈ PHANTOM</span><em>LOCAL FIRST</em></button><button class="wallet-option" data-connect><span>□ DEMO WALLET</span><em>LOCAL FIRST</em></button>`);
 }
 function openBoost(id){ const item=mission(id); modal(`<p class="eyebrow">REWARD SIGNAL // ${item.title}</p><h2>BOOST REWARD</h2><p>Onchain reward boost integration pending.</p><form id="boost-form" data-id="${id}"><div class="boost-total triple"><span>CURRENT POOL <b>${money(pool(item))}</b></span><span>YOUR BOOST <b data-boost-preview>${money(0)}</b></span><span>NEW POOL <b data-boost-total>${money(pool(item))}</b></span></div><label>AMOUNT TO BOOST<div class="currency-input"><span>$</span><input required min="1" type="number" name="amount" placeholder="25"></div></label><button class="button primary" type="submit">CONFIRM BOOST</button></form>`); }
-function openSubmit(id){ const item=mission(id); if(!verifiedX()) return openConnectX("Connect and verify X before submitting mission attempts."); modal(`<p class="eyebrow">PROOF CONSOLE // ${item.title}</p><h2>SUBMIT ATTEMPT</h2><p>Your submitted X post must belong to @${state.user.xHandle} and tag @LazyProtocol. The API verifies post ownership before accepting proof.</p><form id="submit-form" data-id="${id}"><label>SUBMISSION TITLE<input required name="title"></label><label>DESCRIPTION<textarea required name="description"></textarea></label><label>UPLOAD / PROOF LINK<input required type="url" name="proof" placeholder="https://"></label><label>X POST LINK FROM @${state.user.xHandle}<input required type="url" name="x" placeholder="https://x.com/${state.user.xHandle}/status/..."></label><label>OPTIONAL IMAGE / VIDEO URL<input type="url" name="media"></label><button class="button primary" type="submit">SUBMIT ATTEMPT</button></form>`); }
-function openConnectX(message="Connect your X account to verify submissions and prevent impersonation."){ modal(`<p class="eyebrow">X VERIFICATION</p><h2>CONNECT X ACCOUNT</h2><p>${message}</p><p>Submission links are accepted only when the X post author matches your connected X account.</p><button class="button primary full-width" data-start-x>CONNECT X ACCOUNT</button>`); }
-function openEdit(){ modal(`<p class="eyebrow">PROFILE CONSOLE</p><h2>EDIT PROFILE</h2><form id="edit-form"><label>USERNAME<input required name="username" value="${state.username}"></label><button class="button primary" type="submit">SAVE PROFILE</button></form>`); }
+function openSubmit(id){ const item=mission(id); if(!verifiedX()) return openConnectX("Connect X to verify this submission belongs to you."); modal(`<p class="eyebrow">PROOF CONSOLE // ${item.title}</p><h2>SUBMIT ATTEMPT</h2><p>Your submitted X post must belong to @${state.user.xHandle} and tag @LazyProtocol. The API verifies post ownership before accepting proof.</p><form id="submit-form" data-id="${id}"><label>SUBMISSION TITLE<input required name="title"></label><label>DESCRIPTION<textarea required name="description"></textarea></label><label>UPLOAD / PROOF LINK<input required type="url" name="proof" placeholder="https://"></label><label>X POST LINK FROM @${state.user.xHandle}<input required type="url" name="x" placeholder="https://x.com/${state.user.xHandle}/status/..."></label><label>OPTIONAL IMAGE / VIDEO URL<input type="url" name="media"></label><button class="button primary" type="submit">SUBMIT ATTEMPT</button></form>`); }
+function openConnectX(message="Connect X to verify this submission belongs to you."){ modal(`<p class="eyebrow">X VERIFICATION</p><h2>CONNECT X ACCOUNT</h2><p>${message}</p><p>X is only used for submission ownership checks. It is not required for your profile, browsing, joining, or boosting.</p><button class="button primary full-width" data-start-x>CONNECT X ACCOUNT</button>`); }
+function openEdit(){ modal(`<p class="eyebrow">PROFILE CONSOLE</p><h2>EDIT PROFILE</h2><form id="edit-form"><label>USERNAME<input required name="username" value="${state.username}"></label><label>AVATAR IMAGE URL<input name="avatarUrl" value="${state.user?.avatarUrl || state.avatarUrl || ""}" placeholder="https://..."></label><button class="button primary" type="submit">SAVE PROFILE</button></form>`); }
 function closeModal(){modalRoot.innerHTML="";}
 async function missionAction(id){
   const item=mission(id);
@@ -291,6 +356,19 @@ function updateMobileNav() {
     link.classList.toggle("active", active);
   });
 }
+function renderXEmbeds() {
+  if (!document.querySelector("[data-x-embed]")) return;
+  const run = () => window.twttr?.widgets?.load?.();
+  if (window.twttr?.widgets) return run();
+  if (document.querySelector("script[data-x-widgets]")) return;
+  const script = document.createElement("script");
+  script.src = "https://platform.twitter.com/widgets.js";
+  script.async = true;
+  script.charset = "utf-8";
+  script.dataset.xWidgets = "true";
+  script.onload = run;
+  document.body.appendChild(script);
+}
 function render(){
   const path=routePath(); closeModal();
   if(path==="/") renderHome();
@@ -299,6 +377,7 @@ function render(){
   else if(path.startsWith("/missions/")) renderMissionDetail(path.split("/")[2]);
   else if(path==="/world-cup") renderWorldCup();
   else if(path==="/leaderboard") renderLeaderboard();
+  else if(path==="/submissions") renderSubmissions();
   else if(path==="/agents") renderAgents();
   else if(path.startsWith("/agents/")) renderAgentDetail(path.split("/")[2]);
   else if(path==="/profile") renderProfile();
@@ -307,6 +386,7 @@ function render(){
   else renderNotFound();
   updateWalletUI();
   updateMobileNav();
+  renderXEmbeds();
 }
 
 document.addEventListener("click",(event)=>{
@@ -315,13 +395,14 @@ document.addEventListener("click",(event)=>{
   if(event.target.closest("[data-close-modal]")||event.target.classList.contains("modal-backdrop")) return closeModal();
   const walletMenu=event.target.closest("[data-wallet-menu]"); if(walletMenu){ if(state.wallet){const drop=document.querySelector("[data-wallet-dropdown]");drop.hidden=!drop.hidden;drop.innerHTML=`<a href="${routeHref("/profile")}" data-route>PROFILE</a><button data-disconnect>DISCONNECT</button>`;} else openWallet();return;}
   // TODO: Replace this demo address with the real Solana wallet adapter public key/signature flow.
-  if(event.target.closest("[data-connect]")){ api("/auth/wallet",{method:"POST",body:JSON.stringify({wallet:DEMO_WALLET})}).then(async (payload)=>{ state.wallet=payload.user.wallet; state.user=payload.user; state.username=payload.user.username || state.username; save(); closeModal(); updateWalletUI(); await refreshRemoteData(); render(); showToast("WALLET CONNECTED"); }).catch((error)=>showToast(error.message)); return; }
+  if(event.target.closest("[data-connect]")){ connectWalletLocal(); return; }
   if(event.target.closest("[data-connect-x]")) return openConnectX();
   if(event.target.closest("[data-start-x]")){ api("/auth/x/start",{method:"POST",body:JSON.stringify({wallet:state.wallet})}).then((payload)=>{ location.href=payload.url; }).catch((error)=>showToast(error.message)); return; }
   if(event.target.closest("[data-disconnect]")){state.wallet=null;save();render();showToast("WALLET DISCONNECTED");return;}
   const action=event.target.closest("[data-mission-action]"); if(action){ missionAction(action.dataset.missionAction); return; }
   const boost=event.target.closest("[data-boost]"); if(boost)return openBoost(boost.dataset.boost);
   const filter=event.target.closest("[data-filter]"); if(filter){missionFilter=filter.dataset.filter;renderMissions();return;}
+  const submissionFilterButton=event.target.closest("[data-submission-filter]"); if(submissionFilterButton){submissionFilter=submissionFilterButton.dataset.submissionFilter;liveData.globalSubmissions=null;renderSubmissions();return;}
   const heroDot=event.target.closest("[data-hero-slide]"); if(heroDot){heroSlide=Number(heroDot.dataset.heroSlide);renderHome();return;}
   const board=event.target.closest("[data-board]"); if(board){boardTab=board.dataset.board;boardPages[boardTab]=0;renderLeaderboard();return;}
   const boardPage=event.target.closest("[data-board-page]"); if(boardPage){const rows=leaderboardRows(boardTab);const maxPage=Math.max(0,Math.ceil(rows.length/10)-1);boardPages[boardTab]=Math.max(0,Math.min(maxPage,(boardPages[boardTab]||0)+(boardPage.dataset.boardPage==="next"?1:-1)));renderLeaderboard();return;}
@@ -351,8 +432,8 @@ document.addEventListener("submit", async (event)=>{
   // TODO: Escrow and settle reward boosts onchain after wallet signing is available.
   if(form.id==="boost-form"){try{const id=form.dataset.id;await api(`/missions/${id}/boost`,{method:"POST",body:JSON.stringify({wallet:state.wallet,amount:Number(fd.get("amount"))})});state.boosts[id]=Number(state.boosts[id]||0)+Number(fd.get("amount"));save();closeModal();await refreshRemoteData();showToast("REWARD POOL BOOSTED // ONCHAIN SETTLEMENT HOOK PENDING");}catch(error){showToast(error.message);}}
   // TODO: Route accepted proof into the verifier, moderation queue, and reward settlement pipeline.
-  if(form.id==="submit-form"){try{const id=form.dataset.id;await api(`/missions/${id}/submissions`,{method:"POST",body:JSON.stringify({wallet:state.wallet,title:fd.get("title"),description:fd.get("description"),proofUrl:fd.get("proof"),xPostUrl:fd.get("x"),mediaUrl:fd.get("media")})});state.submitted.push(id);save();closeModal();delete liveData.submissions[id];await refreshRemoteData();showToast("ATTEMPT SUBMITTED // X AUTHOR VERIFIED");}catch(error){showToast(error.message);}}
-  if(form.id==="edit-form"){try{const username=fd.get("username").toUpperCase();const payload=await api("/users/me",{method:"PATCH",body:JSON.stringify({wallet:state.wallet,username})});state.user=payload.user;state.username=username;save();closeModal();render();showToast("PROFILE UPDATED");}catch(error){showToast(error.message);}}
+  if(form.id==="submit-form"){try{const id=form.dataset.id;await api(`/missions/${id}/submissions`,{method:"POST",body:JSON.stringify({wallet:state.wallet,title:fd.get("title"),description:fd.get("description"),proofUrl:fd.get("proof"),xPostUrl:fd.get("x"),mediaUrl:fd.get("media")})});state.submitted.push(id);save();closeModal();delete liveData.submissions[id];liveData.globalSubmissions=null;await refreshRemoteData();showToast("ATTEMPT SUBMITTED // X AUTHOR VERIFIED");}catch(error){showToast(error.message);}}
+  if(form.id==="edit-form"){const username=fd.get("username").toUpperCase();const avatarUrl=String(fd.get("avatarUrl")||"").trim();state.username=username;state.avatarUrl=avatarUrl || null;state.user={...(state.user||{}),wallet:state.wallet,username,avatarUrl:avatarUrl||null};save();closeModal();render();showToast("PROFILE UPDATED");if(API_BASE){try{const payload=await api("/users/me",{method:"PATCH",body:JSON.stringify({wallet:state.wallet,username,avatarUrl:avatarUrl||null})});state.user=payload.user;state.avatarUrl=payload.user.avatarUrl||avatarUrl||null;save();render();}catch(error){showToast("Profile saved locally. Sync unavailable.");}}}
   // TODO: Let Claw agents deploy missions and create the matching reward escrow.
   if(form.id==="create-form"||form.id==="admin-mission-form"){try{await api(form.id==="admin-mission-form"?"/admin/missions":"/missions",{method:"POST",body:JSON.stringify({wallet:state.wallet,title:fd.get("title").toUpperCase(),category:fd.get("category"),agentId:fd.get("agentId"),reward:Number(fd.get("reward")),deadline:new Date(fd.get("deadline")).toISOString(),description:fd.get("description"),rules:ensureRules(fd.get("rules").split("\n").filter(Boolean)),proof:fd.get("proof")})});await refreshRemoteData();liveData.admin=null;showToast("MISSION DEPLOYED // CLAW AND ESCROW INTEGRATION PENDING");form.id==="admin-mission-form"?renderAdmin():navigate("/missions");}catch(error){showToast(error.message);}}
 });

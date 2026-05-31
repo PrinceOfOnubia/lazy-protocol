@@ -46,7 +46,7 @@ button { cursor: pointer; }
 .hero::before { content: ""; position: absolute; width: 840px; height: 130px; top: 42%; background: rgba(145,30,24,.2); filter: blur(25px); }
 .hero-carousel { padding-left: 0; padding-right: 0; }
 .hero-track { width: 100%; display: flex; transition: transform .42s ease; will-change: transform; }
-.hero-slide { width: 100%; min-width: 100%; min-height: 780px; padding: 0 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+.hero-slide { width: 100%; min-width: 100%; min-height: 780px; padding: 0 24px 86px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
 .hero-title-alt { font-size: clamp(82px, 12vw, 178px); line-height: .86; letter-spacing: -2px; }
 .hero-title-alt span { color: transparent; -webkit-text-stroke: 2px var(--cream); }
 .hero-bounty, .hero-agent-card { display: grid; gap: 6px; min-width: min(480px, calc(100vw - 48px)); margin: 20px 0 30px; padding: 18px; border: 1px solid rgba(232,225,213,.14); background: rgba(8,9,9,.72); box-shadow: 0 0 36px rgba(239,70,61,.12); }
@@ -218,6 +218,16 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
 .submission-list { display: grid; gap: 10px; }
 #submissions { scroll-margin-top: 84px; }
 #submissions .submission-list { padding-bottom: 240px; }
+.submission-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 14px; }
+.submission-card { padding: 18px; border: 1px solid rgba(232,225,213,.14); background: linear-gradient(145deg, rgba(22,19,18,.96), rgba(9,10,10,.95)); clip-path: polygon(0 0, 96% 0, 100% 8%, 100% 100%, 0 100%); }
+.submission-head { display: flex; justify-content: space-between; gap: 14px; align-items: start; }
+.submission-card h3 { margin: 0 0 10px; font-family: var(--display); font-size: 30px; line-height: 1.04; }
+.submission-card p { color: var(--muted); font-size: 11px; line-height: 1.65; }
+.submission-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 12px; color: var(--muted); font-size: 8px; letter-spacing: .7px; }
+.x-embed { width: 100%; max-width: 100%; min-height: 140px; margin: 12px 0; padding: 12px; border: 1px solid rgba(232,225,213,.12); background: rgba(0,0,0,.18); overflow: hidden; }
+.x-embed iframe { max-width: 100% !important; min-width: 0 !important; }
+.x-embed p, .x-embed-fallback { color: var(--muted); font-size: 9px; letter-spacing: 1px; }
+.x-fallback { margin-top: 8px; width: fit-content; }
 .submission { display: grid; grid-template-columns: 1fr 1.3fr auto; gap: 18px; padding: 18px; border: 1px solid rgba(232,225,213,.12); background: var(--panel); align-items: center; font-size: 11px; }
 .submission span { display: block; margin-top: 5px; color: var(--muted); font-size: 8px; }
 .submission p { margin: 0; color: var(--muted); line-height: 1.6; }
@@ -292,7 +302,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
   .wallet-dot { width: 6px; height: 6px; }
   .hero { min-height: calc(100svh - 62px); max-height: 690px; padding-top: 34px; padding-bottom: 26px; justify-content: center; }
   .hero-carousel { padding-top: 0; padding-bottom: 0; }
-  .hero-slide { min-height: calc(100svh - 62px); max-height: 690px; padding: 34px 14px 58px; }
+  .hero-slide { min-height: calc(100svh - 62px); max-height: 690px; padding: 34px 14px 82px; }
   .hero::before { width: 94vw; height: 92px; top: 30%; }
   .hero h1 { width: 100%; font-size: clamp(74px, 25.5vw, 102px); line-height: .8; letter-spacing: -1px; }
   .hero h1 .outline { -webkit-text-stroke: 1.35px var(--cream); transform: scaleX(.76); transform-origin: center; }
@@ -314,6 +324,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
   .hero-agent-card b { font-size: 34px; }
   .hero-dots { bottom: 20px; }
   .mission-grid, .agent-grid { grid-template-columns: 1fr; }
+  .submission-grid { grid-template-columns: 1fr; }
   .mission-card, .mission-card.featured { grid-column: auto; min-height: auto; padding: 18px; }
   .mission-card.featured h3, .mission-card h3 { min-height: auto; margin-top: 17px; font-size: 29px; line-height: 1.06; }
   .mission-card p, .mission-card.featured p { min-height: auto; margin-bottom: 15px; font-size: 11px; }

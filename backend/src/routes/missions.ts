@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { ensureRules, slugify } from "../lib/constants.js";
-import { serializeMission } from "../lib/serializers.js";
+import { serializeMission, serializeSubmission } from "../lib/serializers.js";
 import { extractPostId, fetchPostAuthor } from "../lib/x.js";
 import { requireUser } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/async-route.js";
@@ -103,7 +103,11 @@ missionsRouter.post("/:id/submissions", asyncRoute(async (req, res) => {
       xAuthorHandle: author.handle || xAccount.handle,
     },
   });
-  res.status(201).json({ submission });
+  const created = await prisma.submission.findUniqueOrThrow({
+    where: { id: submission.id },
+    include: { mission: true, user: { include: { walletAccounts: true, xAccounts: true } } },
+  });
+  res.status(201).json({ submission: serializeSubmission(created) });
 }));
 
 missionsRouter.get("/:id/submissions", asyncRoute(async (req, res) => {
@@ -113,18 +117,5 @@ missionsRouter.get("/:id/submissions", asyncRoute(async (req, res) => {
     orderBy: { createdAt: "desc" },
     include: { user: { include: { walletAccounts: true, xAccounts: true } } },
   });
-  res.json({
-    submissions: submissions.map((submission) => ({
-      id: submission.id,
-      missionId: req.params.id,
-      title: submission.title,
-      description: submission.description,
-      proof: submission.proofUrl,
-      x: submission.xPostUrl,
-      user: submission.user.username || submission.user.xAccounts[0]?.handle || submission.user.walletAccounts[0]?.address,
-      xHandle: submission.xAuthorHandle,
-      status: submission.status,
-      created: submission.createdAt.toISOString(),
-    })),
-  });
+  res.json({ submissions: submissions.map(serializeSubmission) });
 }));

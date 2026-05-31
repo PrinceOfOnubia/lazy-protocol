@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Request } from "express";
 import { prisma } from "../lib/prisma.js";
 import { ensureRules, slugify } from "../lib/constants.js";
-import { serializeAgent, serializeMission, publicUser } from "../lib/serializers.js";
+import { serializeAgent, serializeMission, publicUser, serializeSubmission } from "../lib/serializers.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/async-route.js";
 
@@ -13,12 +13,12 @@ adminRouter.get("/overview", asyncRoute(async (req, res) => {
   const [users, missions, submissions, boosts, agents, actions] = await Promise.all([
     prisma.user.findMany({ orderBy: { createdAt: "desc" }, take: 100, include: { walletAccounts: true, xAccounts: true } }),
     prisma.mission.findMany({ orderBy: { createdAt: "desc" }, include: { agent: true, _count: { select: { joins: true, submissions: true } } } }),
-    prisma.submission.findMany({ orderBy: { createdAt: "desc" }, include: { user: { include: { walletAccounts: true } }, mission: true } }),
+    prisma.submission.findMany({ orderBy: { createdAt: "desc" }, include: { user: { include: { walletAccounts: true, xAccounts: true } }, mission: true } }),
     prisma.rewardBoost.findMany({ orderBy: { createdAt: "desc" }, include: { user: { include: { walletAccounts: true } }, mission: true } }),
     prisma.agent.findMany({ orderBy: { createdAt: "desc" }, include: { _count: { select: { missions: true } } } }),
     prisma.adminAction.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
   ]);
-  res.json({ users: users.map(publicUser), missions: missions.map(serializeMission), submissions, boosts, agents: agents.map(serializeAgent), actions });
+  res.json({ users: users.map(publicUser), missions: missions.map(serializeMission), submissions: submissions.map(serializeSubmission), boosts, agents: agents.map(serializeAgent), actions });
 }));
 
 adminRouter.post("/missions", asyncRoute(async (req, res) => {
