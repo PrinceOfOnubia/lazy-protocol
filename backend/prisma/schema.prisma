@@ -56,6 +56,11 @@ enum MissionCreatedByType {
   LAZARUS
 }
 
+enum RewardCurrency {
+  USDC
+  SOL
+}
+
 enum FundingTransactionType {
   MISSION_FUND
   BOOST
@@ -178,7 +183,8 @@ model Mission {
   description    String
   rules          String[]
   proof          String
-  rewardPool     Decimal       @db.Decimal(12, 2)
+  rewardPool     Decimal       @db.Decimal(18, 9)
+  rewardCurrency RewardCurrency @default(USDC)
   prizePoolAmountSol Decimal?   @db.Decimal(18, 9)
   fundingTxHash  String?
   funderWallet   String?
@@ -232,7 +238,8 @@ model Submission {
   status          SubmissionStatus @default(PENDING)
   rejectionReason String?
   adminNote       String?
-  payoutAmount    Decimal?         @db.Decimal(12, 2)
+  payoutAmount    Decimal?         @db.Decimal(18, 9)
+  payoutCurrency  RewardCurrency   @default(USDC)
   payoutWallet    String?
   payoutTxHash    String?
   payoutStatus    PayoutStatus     @default(UNPAID)
@@ -250,7 +257,8 @@ model RewardBoost {
   id          String   @id @default(cuid())
   userId      String
   missionId   String
-  amount      Decimal  @db.Decimal(12, 2)
+  amount      Decimal  @db.Decimal(18, 9)
+  currency    RewardCurrency @default(USDC)
   amountSol   Decimal? @db.Decimal(18, 9)
   txSignature String?
   boosterWallet String?
@@ -316,4 +324,14 @@ model AdminNote {
   adminUser   User?    @relation("AdminNoteAuthor", fields: [adminUserId], references: [id], onDelete: SetNull)
 
   @@map("admin_notes")
+}
+
+model LazarusMemory {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("lazarus_memory")
 }

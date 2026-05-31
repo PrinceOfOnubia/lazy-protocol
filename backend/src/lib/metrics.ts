@@ -4,7 +4,7 @@ import { serializeAgent } from "./serializers.js";
 
 export async function userRewardsEarned(userId: string) {
   const result = await prisma.submission.aggregate({
-    where: { userId, status: "PAID", payoutStatus: "PAID" },
+    where: { userId, status: "PAID", payoutStatus: "PAID", payoutCurrency: "USDC" },
     _sum: { payoutAmount: true },
   });
   return Number(result._sum.payoutAmount || 0);
@@ -13,7 +13,8 @@ export async function userRewardsEarned(userId: string) {
 export async function agentMetrics(agentId: string) {
   const [missionsCreated, rewards, supporters, submissions, winners, paidWinners] = await Promise.all([
     prisma.mission.count({ where: { agentId } }),
-    prisma.submission.aggregate({
+    prisma.submission.groupBy({
+      by: ["payoutCurrency"],
       where: { mission: { agentId }, status: "PAID", payoutStatus: "PAID" },
       _sum: { payoutAmount: true },
     }),
@@ -39,9 +40,13 @@ export async function agentMetrics(agentId: string) {
   const payoutScore = winners ? paidWinners / winners : 1;
   const trustScore = totalSubmissions ? Math.round(((reviewScore * 0.7) + (payoutScore * 0.3)) * 1000) / 10 : null;
 
+  const rewardsPaid = rewards.find((row) => row.payoutCurrency === "USDC");
+  const rewardsPaidSol = rewards.find((row) => row.payoutCurrency === "SOL");
+
   return {
     missionsCreated,
-    rewardsPaid: Number(rewards._sum.payoutAmount || 0),
+    rewardsPaid: Number(rewardsPaid?._sum.payoutAmount || 0),
+    rewardsPaidSol: Number(rewardsPaidSol?._sum.payoutAmount || 0),
     supporters: supporters.length,
     trustScore,
   };
@@ -55,7 +60,8 @@ export async function serializeAgentsWithMetrics(agents: Agent[]) {
       missions: metrics.missionsCreated,
       missionsCreated: metrics.missionsCreated,
       rewardsPaid: metrics.rewardsPaid,
-      rewards: `$${metrics.rewardsPaid.toLocaleString()}`,
+      rewardsPaidSol: metrics.rewardsPaidSol,
+      rewards: metrics.rewardsPaidSol > 0 ? `$${metrics.rewardsPaid.toLocaleString()} + ${metrics.rewardsPaidSol.toLocaleString(undefined, { maximumFractionDigits: 4 })} SOL` : `$${metrics.rewardsPaid.toLocaleString()}`,
       supporters: metrics.supporters.toLocaleString(),
       supportersCount: metrics.supporters,
       trustScore: metrics.trustScore,

@@ -36,9 +36,28 @@ for (const item of missions) {
   const agent = await prisma.agent.findUniqueOrThrow({ where: { slug: agentSlug } });
   await prisma.mission.upsert({
     where: { slug: mission.slug },
-    update: { ...mission, rules: withLazyRule(mission.rules), agentId: agent.id },
-    create: { ...mission, rules: withLazyRule(mission.rules), agentId: agent.id },
+    update: { ...mission, rewardCurrency: "USDC", rules: withLazyRule(mission.rules), agentId: agent.id },
+    create: { ...mission, rewardCurrency: "USDC", rules: withLazyRule(mission.rules), agentId: agent.id },
   });
 }
+
+await prisma.lazarusMemory.upsert({
+  where: { key: "persona" },
+  update: {
+    value: {
+      tone: "bold, concise, useful, campaign-native",
+      purpose: "Create safe missions that turn human attention into productive onchain work.",
+      rules: ["No harmful missions", "No gambling framing", "Require @LazyProtocol X proof when X is used"],
+    },
+  },
+  create: {
+    key: "persona",
+    value: {
+      tone: "bold, concise, useful, campaign-native",
+      purpose: "Create safe missions that turn human attention into productive onchain work.",
+      rules: ["No harmful missions", "No gambling framing", "Require @LazyProtocol X proof when X is used"],
+    },
+  },
+});
 
 await prisma.$disconnect();

@@ -9,7 +9,7 @@ import { validateSafeMission } from "../lib/safety.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/async-route.js";
 import { clawPumpStatus, testClawPumpConnection } from "../services/clawpump.js";
-import { createLazarusMission, lazarusMissionTemplates } from "../services/lazarus.js";
+import { createLazarusMission, generateLazarusDescription, lazarusAiStatus, lazarusMemorySummary, lazarusMissionTemplates } from "../services/lazarus.js";
 
 export const adminRouter = Router();
 
@@ -33,7 +33,7 @@ adminRouter.get("/overview", asyncRoute(async (req, res) => {
     submissions: submissions.map(serializeSubmission),
     boosts,
     agents: agentRows,
-    integrations: { clawpump: clawPumpStatus(), lazarusTemplates: lazarusMissionTemplates() },
+    integrations: { clawpump: clawPumpStatus(), lazarusTemplates: lazarusMissionTemplates(), lazarusAi: lazarusAiStatus(), lazarusMemory: await lazarusMemorySummary() },
     actions,
     fundingTransactions: fundingTransactions.map((tx) => ({
       id: tx.id,
@@ -124,6 +124,8 @@ adminRouter.post("/missions", asyncRoute(async (req, res) => {
       createdByType: "ADMIN",
       createdByWallet: admin.walletAccounts[0]?.address,
       rewardPool: Number(req.body.reward),
+      rewardCurrency: req.body.rewardCurrency === "SOL" ? "SOL" : "USDC",
+      prizePoolAmountSol: req.body.rewardCurrency === "SOL" ? Number(req.body.reward) : undefined,
       deadline: new Date(req.body.deadline),
       description: String(req.body.description),
       rules,
@@ -139,6 +141,7 @@ adminRouter.post("/missions", asyncRoute(async (req, res) => {
 adminRouter.patch("/missions/:id", asyncRoute(async (req, res) => {
   const admin = await requireAdmin(req);
   const rewardIncrement = Number(req.body.rewardBoost || 0);
+  const rewardCurrency = req.body.rewardCurrency === "SOL" ? "SOL" : req.body.rewardCurrency === "USDC" ? "USDC" : undefined;
   const rules = req.body.rules ? ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules).split("\n").filter(Boolean)) : undefined;
   if (req.body.title || req.body.description || rules) {
     validateSafeMission({ title: String(req.body.title || ""), description: String(req.body.description || ""), rules: rules || [], proof: String(req.body.proof || "") });
@@ -153,6 +156,8 @@ adminRouter.patch("/missions/:id", asyncRoute(async (req, res) => {
       featured: req.body.featured,
       deadline: req.body.deadline ? new Date(req.body.deadline) : undefined,
       rewardPool: rewardIncrement > 0 ? { increment: rewardIncrement } : undefined,
+      rewardCurrency,
+      prizePoolAmountSol: rewardCurrency === "SOL" && req.body.reward ? Number(req.body.reward) : undefined,
       rules,
     },
     include: { agent: true, _count: { select: { joins: true, submissions: true } } },
@@ -214,12 +219,19 @@ adminRouter.post("/lazarus/create-mission", asyncRoute(async (req, res) => {
   const mission = await createLazarusMission({
     type: req.body.type,
     rewardPool: Number(req.body.rewardPool || req.body.reward || 100),
+    rewardCurrency: req.body.rewardCurrency === "SOL" ? "SOL" : "USDC",
     deadlineHours: Number(req.body.deadlineHours || 48),
+    description: req.body.description,
     featured: Boolean(req.body.featured),
     adminUserId: admin.id,
   });
   await prisma.adminAction.create({ data: { adminUserId: admin.id, type: "MISSION_CREATED", targetType: "mission", targetId: mission.dbId || mission.id, metadata: { source: "LAZARUS" } } });
   res.status(201).json({ mission });
+}));
+
+adminRouter.post("/lazarus/generate-description", asyncRoute(async (req, res) => {
+  await requireAdmin(req);
+  res.json({ description: await generateLazarusDescription(req.body.type) });
 }));
 
 async function moderateSubmission(req: Request, status: SubmissionStatus, type: "SUBMISSION_APPROVED" | "SUBMISSION_REJECTED" | "WINNER_MARKED" | "SUBMISSION_DISQUALIFIED") {
@@ -253,6 +265,7 @@ adminRouter.post("/submissions/:id/mark-paid", asyncRoute(async (req, res) => {
       status: "PAID",
       payoutStatus: "PAID",
       payoutAmount: amount,
+      payoutCurrency: req.body.payoutCurrency === "SOL" ? "SOL" : "USDC",
       payoutWallet: req.body.payoutWallet,
       payoutTxHash: req.body.payoutTxHash,
       payoutNote: req.body.payoutNote,

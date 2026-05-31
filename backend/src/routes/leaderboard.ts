@@ -35,14 +35,17 @@ leaderboardRouter.get("/", asyncRoute(async (_req, res) => {
     agents: agentRows
       .sort((a, b) => b.missionsCreated - a.missionsCreated || b.supportersCount - a.supportersCount || b.rewardsPaid - a.rewardsPaid)
       .slice(0, 50)
-      .map((agent) => [agent.name, `${agent.missionsCreated} CREATED`, `$${agent.rewardsPaid.toLocaleString()} PAID`, `${agent.supportersCount.toLocaleString()} SUPPORTERS`]),
+      .map((agent) => [agent.name, `${agent.missionsCreated} CREATED`, `${agent.rewards} PAID`, `${agent.supportersCount.toLocaleString()} SUPPORTERS`]),
     countries: [],
-    missions: missions.map((mission) => ({
-      label: mission.title,
-      meta: `$${Number(mission.rewardPool).toLocaleString()}`,
-      detail: `${mission._count.joins} JOINED // ${mission._count.submissions} SUBMISSIONS`,
-      score: statusFor(mission),
-      href: `/missions/${mission.slug}`,
-    })),
+    missions: missions.map((mission) => {
+      const currency = mission.rewardCurrency || "USDC";
+      return {
+        label: mission.title,
+        meta: currency === "SOL" ? `${Number(mission.rewardPool).toLocaleString(undefined, { maximumFractionDigits: 4 })} SOL` : `$${Number(mission.rewardPool).toLocaleString()}`,
+        detail: `${mission._count.joins} JOINED // ${mission._count.submissions} SUBMISSIONS`,
+        score: statusFor(mission),
+        href: `/missions/${mission.slug}`,
+      };
+    }),
   });
 }));

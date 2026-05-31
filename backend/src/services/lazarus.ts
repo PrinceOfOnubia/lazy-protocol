@@ -94,7 +94,9 @@ export async function ensureLazarusAgent() {
 export async function createLazarusMission(input: {
   type?: string;
   rewardPool?: number;
+  rewardCurrency?: "USDC" | "SOL";
   deadlineHours?: number;
+  description?: string;
   featured?: boolean;
   adminUserId?: string;
 }) {
@@ -102,6 +104,7 @@ export async function createLazarusMission(input: {
   const type = (input.type && input.type in templates ? input.type : "world-cup-meme") as LazarusKind;
   const template = templates[type];
   const rewardPool = Number(input.rewardPool || 100);
+  const rewardCurrency = input.rewardCurrency === "SOL" ? "SOL" : "USDC";
   if (!Number.isFinite(rewardPool) || rewardPool <= 0) {
     const error = new Error("Reward pool must be positive.");
     (error as Error & { status?: number }).status = 400;
@@ -112,17 +115,20 @@ export async function createLazarusMission(input: {
   const deadline = new Date(now + Number(input.deadlineHours || 48) * 3600000);
   const slug = `${slugify(template.title)}-${Math.floor(now / 1000)}`;
   const rules = ensureRules(template.rules);
-  validateSafeMission({ ...template, rules });
+  const description = String(input.description || template.description).trim();
+  validateSafeMission({ ...template, description, rules });
 
   const mission = await prisma.mission.create({
     data: {
       slug,
       title: template.title,
       category: template.category,
-      description: template.description,
+      description,
       rules,
       proof: template.proof,
       rewardPool,
+      rewardCurrency,
+      prizePoolAmountSol: rewardCurrency === "SOL" ? rewardPool : null,
       deadline,
       featured: Boolean(input.featured),
       agentId: agent.id,
@@ -135,4 +141,71 @@ export async function createLazarusMission(input: {
   });
 
   return serializeMission(mission);
+}
+
+export async function lazarusMemorySummary() {
+  const [persona, recent] = await Promise.all([
+    prisma.lazarusMemory.findUnique({ where: { key: "persona" } }),
+    prisma.mission.findMany({
+      where: { createdByType: "LAZARUS" },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      select: { title: true, category: true, status: true, createdAt: true },
+    }),
+  ]);
+  return {
+    persona: persona?.value || {
+      tone: "bold, concise, useful, campaign-native",
+      purpose: "Create safe missions that turn human attention into productive onchain work.",
+      rules: ["No harmful missions", "No gambling framing", "Require @LazyProtocol X proof when X is used"],
+    },
+    recentMissions: recent.map((mission) => ({
+      title: mission.title,
+      category: mission.category,
+      status: mission.status,
+      createdAt: mission.createdAt.toISOString(),
+    })),
+  };
+}
+
+export function lazarusAiStatus() {
+  return {
+    configured: Boolean(process.env.OPENAI_API_KEY),
+    model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+    memory: "persona + recent Lazarus missions",
+  };
+}
+
+export async function generateLazarusDescription(type?: string) {
+  const selectedType = (type && type in templates ? type : "world-cup-meme") as LazarusKind;
+  const template = templates[selectedType];
+  const memory = await lazarusMemorySummary();
+  if (!process.env.OPENAI_API_KEY) {
+    const error = new Error("Lazarus AI generation is unavailable until server-side AI credentials are added.");
+    (error as Error & { status?: number }).status = 503;
+    throw error;
+  }
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+      messages: [
+        { role: "system", content: "You are Lazarus, Lazy Protocol's native mission agent. Write safe, concise, high-energy mission descriptions. Never include unsafe stunts, illegal activity, gambling framing, secrets, or private user data." },
+        { role: "user", content: JSON.stringify({ template, memory, instruction: "Write one mission description under 38 words. Make it actionable, safe, and on-brand." }) },
+      ],
+      temperature: 0.7,
+      max_tokens: 90,
+    }),
+  });
+  if (!response.ok) {
+    const error = new Error("Lazarus AI generation failed. Try again or write the description manually.");
+    (error as Error & { status?: number }).status = 502;
+    throw error;
+  }
+  const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+  return payload.choices?.[0]?.message?.content?.trim() || template.description;
 }

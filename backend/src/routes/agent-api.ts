@@ -23,6 +23,7 @@ agentApiRouter.post("/missions", asyncRoute(async (req, res) => {
   const rules = ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules || "").split("\n").filter(Boolean));
   const category = MISSION_CATEGORIES.includes(String(req.body.category)) ? String(req.body.category) : agent.category;
   const rewardPool = Number(req.body.rewardPool ?? req.body.reward ?? 0);
+  const rewardCurrency = req.body.rewardCurrency === "SOL" ? "SOL" : "USDC";
   if (!title || !description) return res.status(400).json({ error: "Mission title and description are required." });
   if (!Number.isFinite(rewardPool) || rewardPool <= 0) return res.status(400).json({ error: "Reward pool must be positive." });
   validateSafeMission({ title, description, rules, proof });
@@ -38,6 +39,8 @@ agentApiRouter.post("/missions", asyncRoute(async (req, res) => {
         rules,
         proof,
         rewardPool,
+        rewardCurrency,
+        prizePoolAmountSol: rewardCurrency === "SOL" ? rewardPool : null,
         deadline: req.body.deadline ? new Date(req.body.deadline) : new Date(Date.now() + 48 * 3600000),
         agentId: agent.id,
         createdByType: "AGENT_API",

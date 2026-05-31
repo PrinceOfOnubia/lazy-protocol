@@ -1,7 +1,7 @@
 export function clawPumpStatus() {
   const apiUrl = process.env.CLAWPUMP_API_URL || "";
   const apiKey = process.env.CLAWPUMP_API_KEY || "";
-  const agentId = process.env.CLAWPUMP_LAZARUS_AGENT_ID || "";
+  const agentId = process.env.CLAWPUMP_AGENT_ID || process.env.CLAWPUMP_LAZARUS_AGENT_ID || "";
   return {
     configured: Boolean(apiUrl && apiKey && agentId),
     apiUrl: apiUrl || null,
