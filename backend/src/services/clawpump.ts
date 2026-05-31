@@ -7,7 +7,7 @@ export function clawPumpStatus() {
     apiUrl: apiUrl || null,
     agentId: agentId || null,
     lastSync: null,
-    message: apiUrl && apiKey && agentId ? "ClawPump credentials are configured." : "ClawPump integration is not configured yet.",
+    message: apiUrl && apiKey && agentId ? "ClawPump credentials are configured." : "Optional. Lazarus can operate without ClawPump configuration.",
   };
 }
 

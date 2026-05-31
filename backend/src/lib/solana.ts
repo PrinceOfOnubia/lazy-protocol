@@ -7,7 +7,7 @@ const connection = new Connection(rpcUrl, "confirmed");
 export function rewardWallet() {
   const wallet = process.env.REWARD_WALLET;
   if (!wallet) {
-    const error = new Error("REWARD_WALLET is not configured.");
+    const error = new Error("Reward wallet is unavailable.");
     (error as Error & { status?: number }).status = 500;
     throw error;
   }

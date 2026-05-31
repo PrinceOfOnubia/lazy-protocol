@@ -13,7 +13,7 @@ authRouter.post("/wallet", asyncRoute(async (req, res) => {
   const { wallet } = req.body;
   if (!wallet) return res.status(400).json({ error: "Wallet is required." });
 
-  // TODO: Require a signed wallet message before mainnet launch.
+  // Security roadmap: require a signed wallet message before unrestricted launch.
   const account = await prisma.walletAccount.upsert({
     where: { address: wallet },
     update: {},
@@ -31,7 +31,7 @@ authRouter.post("/x/start", asyncRoute(async (req, res) => {
   const wallet = user.walletAccounts[0]?.address;
   if (!wallet) return res.status(401).json({ error: "Wallet is required." });
   if (!process.env.X_CLIENT_ID || !process.env.X_CALLBACK_URL) {
-    return res.status(500).json({ error: "X OAuth is not configured. Set X_CLIENT_ID and X_CALLBACK_URL." });
+    return res.status(503).json({ error: "X verification is temporarily unavailable." });
   }
 
   const state = crypto.randomBytes(16).toString("hex");

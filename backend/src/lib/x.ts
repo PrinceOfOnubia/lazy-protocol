@@ -5,7 +5,7 @@ export function extractPostId(url: string) {
 
 export async function fetchXUserFromCode(code: string, verifier: string) {
   if (!process.env.X_CLIENT_ID || !process.env.X_CLIENT_SECRET || !process.env.X_CALLBACK_URL) {
-    throw new Error("X OAuth is not configured. Set X_CLIENT_ID, X_CLIENT_SECRET, and X_CALLBACK_URL.");
+    throw new Error("X verification is temporarily unavailable.");
   }
 
   const body = new URLSearchParams({
@@ -34,7 +34,7 @@ export async function fetchXUserFromCode(code: string, verifier: string) {
 
 export async function fetchPostAuthor(postId: string) {
   if (!process.env.X_BEARER_TOKEN) {
-    throw new Error("X_BEARER_TOKEN is not configured. X post ownership cannot be verified.");
+    throw new Error("X post verification is temporarily unavailable.");
   }
 
   const response = await fetch(`https://api.x.com/2/tweets/${postId}?tweet.fields=author_id,text&expansions=author_id&user.fields=username`, {

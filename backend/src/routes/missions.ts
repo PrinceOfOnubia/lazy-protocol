@@ -99,17 +99,19 @@ missionsRouter.post("/:id/boost", asyncRoute(async (req, res) => {
   const user = await requireUser(req);
   const wallet = user.walletAccounts[0]?.address;
   if (!wallet) return res.status(401).json({ error: "Wallet is required." });
-  const amount = Number(req.body.amountSol ?? req.body.amount);
+  const amount = Number(req.body.amount ?? req.body.amountSol);
   if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: "Boost amount must be positive." });
   const boostTxHash = String(req.body.boostTxHash || req.body.txHash || "");
-  const verified = await verifyFundingTx({ txHash: boostTxHash, fromWallet: wallet, amountSol: amount });
+  const verified = boostTxHash ? await verifyFundingTx({ txHash: boostTxHash, fromWallet: wallet, amountSol: amount }) : null;
   const mission = await prisma.mission.findUniqueOrThrow({ where: { slug: req.params.id } });
   const boost = await prisma.$transaction(async (tx) => {
-    await tx.fundingTransaction.create({
-      data: { txHash: boostTxHash, type: "BOOST", missionId: mission.id, fromWallet: wallet, toWallet: verified.toWallet, amountSol: amount, status: "CONFIRMED" },
-    });
+    if (verified) {
+      await tx.fundingTransaction.create({
+        data: { txHash: boostTxHash, type: "BOOST", missionId: mission.id, fromWallet: wallet, toWallet: verified.toWallet, amountSol: amount, status: "CONFIRMED" },
+      });
+    }
     const created = await tx.rewardBoost.create({
-      data: { userId: user.id, missionId: mission.id, amount, amountSol: amount, txSignature: boostTxHash, boosterWallet: wallet, status: "CONFIRMED" },
+      data: { userId: user.id, missionId: mission.id, amount, amountSol: verified ? amount : null, txSignature: boostTxHash || null, boosterWallet: wallet, status: "CONFIRMED" },
     });
     await tx.mission.update({ where: { id: mission.id }, data: { rewardPool: { increment: amount } } });
     return created;
