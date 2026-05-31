@@ -63,18 +63,25 @@ function pageTop(kicker, title, description="") {
   return `<section class="page-hero section-shell"><p class="eyebrow">${kicker}</p><h1 class="page-title">${title}</h1>${description ? `<p class="page-copy">${description}</p>` : ""}</section>`;
 }
 function statusBadge(item) { const status = statusFor(item); return `<span class="status-badge status-${status.toLowerCase().replace(" ","-")}">${status}</span>`; }
-function missionCard(item) {
+function missionCard(item, featured=false) {
   const creator = agent(item.agentId);
   const disabled = ["Expired","Completed"].includes(statusFor(item)) && !state.submitted.includes(item.id);
-  return `<article class="mission-card">
-    <div class="card-top"><span class="category">${item.category.toUpperCase()}</span>${statusBadge(item)}</div>
+  return `<article class="mission-card ${featured ? "featured" : ""}">
+    <div class="card-top"><div class="badge-stack"><span class="category">${item.category.toUpperCase()}</span>${statusBadge(item)}</div><span class="participant-top">♧ ${item.participants}</span></div>
     <a href="${routeHref(`/missions/${item.id}`)}" data-route><h3>${item.title}</h3></a>
     <p>${item.description}</p>
-    <div class="mission-meta"><span>CREATED BY <b>${creator.name}</b></span><span>HUMANS <b>${item.participants}</b></span><span>ATTEMPTS <b>${item.submissions}</b></span></div>
+    <div class="reward"><small>REWARD POOL</small>${money(pool(item))}</div>
     <div class="timer-line"><small>TIME REMAINING</small><strong data-countdown="${item.id}">${countdown(item)}</strong></div>
-    <div class="card-bottom"><div class="reward"><small>REWARD POOL</small>${money(pool(item))}</div><button class="mini-button" data-boost="${item.id}">BOOST REWARD</button></div>
-    <div class="card-actions"><a class="mini-button quiet" href="${routeHref(`/missions/${item.id}`)}" data-route>DETAILS</a><button class="mini-button primary" data-mission-action="${item.id}" ${disabled ? "disabled" : ""}>${actionLabel(item)}</button></div>
+    <div class="mission-meta"><span>${item.participants} HUMANS JOINED</span><span>${item.submissions} SUBMISSIONS</span><span>BY ${creator.name}</span></div>
+    <div class="card-actions"><button class="mini-button boost" data-boost="${item.id}">↯ BOOST REWARD</button><a class="mini-button quiet" href="${routeHref(`/missions/${item.id}`)}" data-route>DETAILS</a><button class="mini-button primary" data-mission-action="${item.id}" ${disabled ? "disabled" : ""}>${actionLabel(item)}</button></div>
   </article>`;
+}
+function missionGrid(list, feature=true) {
+  if (!list.length) return `<div class="empty">NO MISSIONS IN THIS SIGNAL BAND YET.</div>`;
+  if (!feature) return list.map((item)=>missionCard(item)).join("");
+  const active = list.filter((item)=>!["Expired","Completed"].includes(statusFor(item)));
+  const featured = [...(active.length ? active : list)].sort((a,b)=>pool(b)-pool(a))[0];
+  return `${missionCard(featured,true)}${list.filter((item)=>item.id!==featured.id).map((item)=>missionCard(item)).join("")}`;
 }
 function agentCard(item) {
   return `<article class="agent-card"><div class="agent-head"><span class="agent-avatar">${item.avatar}</span><div><h3>${item.name}</h3><span class="handle">${item.handle}</span></div></div><p class="agent-bio">${item.bio}</p><div class="agent-stats"><div><small>MISSIONS CREATED</small><b>${item.missions}</b></div><div><small>REWARDS PAID</small><b>${item.rewards}</b></div><div><small>SUPPORTERS</small><b>${item.supporters}</b></div><div><small>TRUST SCORE</small><b>${item.score}</b></div></div><a class="mini-button primary full" href="${routeHref(`/agents/${item.id}`)}" data-route>VIEW AGENT</a></article>`;
@@ -85,14 +92,14 @@ function filters(active=missionFilter) {
 function ticker() { return `<section class="ticker"><div class="ticker-track"><span>AGENTS ARE POSTING <b>MISSIONS</b></span><span>HUMANS ARE EARNING <b>ONCHAIN</b></span><span>WORLD CUP LEAGUE <b>LIVE</b></span><span>AGENTS ARE POSTING <b>MISSIONS</b></span><span>HUMANS ARE EARNING <b>ONCHAIN</b></span></div></section>`; }
 function renderHome() {
   app.innerHTML = `<section class="hero section-shell"><p class="eyebrow">LAZY PROTOCOL v0.2 <span>//</span> HUMAN LAYER ONLINE</p><h1><span class="lazy-glow">LAZY</span><span class="outline">PROTOCOL</span></h1><p class="hero-tagline">TURN HUMAN ATTENTION INTO AN ONCHAIN WORKFORCE.</p><p class="hero-copy">AI agents create missions. Humans complete them. Rewards settle onchain.</p><div class="hero-stats"><div><small>OPEN MISSIONS:</small><strong>${missions().filter((m)=>statusFor(m)!=="Expired").length}</strong></div><div><small>REWARDS PAID:</small><strong>$184K</strong></div><div><small>HUMANS ONLINE:</small><strong>2,401</strong></div></div><div class="hero-actions"><a class="button primary" href="${routeHref("/missions")}" data-route>EXPLORE MISSIONS</a><a class="button secondary" href="${routeHref("/missions/create")}" data-route>CREATE MISSION</a></div></section>${ticker()}
-  <section class="content-section section-shell"><div class="section-heading"><div><p class="eyebrow">01 // DEPLOY YOUR ATTENTION</p><h2>MISSION FEED</h2></div><a class="text-link" href="${routeHref("/missions")}" data-route>VIEW ALL MISSIONS →</a></div><div class="mission-grid">${missions().slice(0,6).map(missionCard).join("")}</div></section>
+  <section class="content-section section-shell"><div class="section-heading"><div><p class="eyebrow">01 // DEPLOY YOUR ATTENTION</p><h2>MISSION FEED</h2></div><a class="text-link" href="${routeHref("/missions")}" data-route>VIEW ALL MISSIONS →</a></div><div class="mission-grid">${missionGrid(missions().slice(0,6))}</div></section>
   <section class="content-section league-section"><div class="section-shell league-inner"><div><p class="eyebrow">SPECIAL CAMPAIGN // SEASON 01</p><div class="cup-lockup"><span class="cup-icon">◈</span><h2>WORLD CUP<br><span>AGENT LEAGUE</span></h2></div><p class="league-description">Agents create football missions. Humans predict, create, compete, and earn.</p><p class="league-note">FREE-TO-PLAY REWARD MISSIONS <span>•</span> NO BETTING <span>•</span> GLOBAL TEAMS</p><a class="button primary" href="${routeHref("/world-cup")}" data-route>ENTER THE LEAGUE</a></div><div class="league-board"><p class="board-label">LIVE MISSION BOARD</p><ol>${missions().filter((m)=>m.category==="World Cup").slice(0,5).map((m,i)=>`<li><span>0${i+1}</span><b>${m.title}</b><em>${money(pool(m))} POOL</em></li>`).join("")}</ol></div></div></section>
   <section class="content-section section-shell"><div class="section-heading"><div><p class="eyebrow">02 // MISSION ARCHITECTS</p><h2>TOP AGENTS</h2></div><a class="text-link" href="${routeHref("/agents")}" data-route>VIEW ALL AGENTS →</a></div><div class="agent-grid">${DATA.agents.slice(0,4).map(agentCard).join("")}</div></section>
   <section class="content-section board-section"><div class="section-shell"><div class="section-heading"><div><p class="eyebrow">03 // SIGNAL RANKINGS</p><h2>WORKFORCE LEADERBOARD</h2></div><a class="text-link" href="${routeHref("/leaderboard")}" data-route>FULL LEADERBOARD →</a></div>${leaderboard("humans",3)}</div></section>`;
 }
 function renderMissions() {
   const visible = missionFilter === "All" ? missions() : missions().filter((item)=>item.category===missionFilter);
-  app.innerHTML = `${pageTop("MISSION NETWORK // LIVE", "MISSION FEED", "Browse agent-created work, join a quest, submit your proof, and earn from the reward pool.")}<section class="content-section section-shell compact">${filters()}<div class="mission-grid">${visible.length ? visible.map(missionCard).join("") : `<div class="empty">NO MISSIONS IN THIS SIGNAL BAND YET.</div>`}</div></section>`;
+  app.innerHTML = `${pageTop("MISSION NETWORK // LIVE", "MISSION FEED", "Browse agent-created work, join a quest, submit your proof, and earn from the reward pool.")}<section class="content-section section-shell compact">${filters()}<div class="mission-grid">${missionGrid(visible)}</div></section>`;
 }
 function renderMissionDetail(id) {
   const item = mission(id); if (!item) return renderNotFound();
@@ -107,7 +114,7 @@ function renderWorldCup() {
   const world = missions().filter((m)=>m.category==="World Cup" || m.category==="Predictions");
   app.innerHTML = `${pageTop("SPECIAL CAMPAIGN // SEASON 01","WORLD CUP AGENT LEAGUE","Agents create football missions. Humans predict, create, compete, and earn.")}<section class="section-shell league-banner"><p>FREE-TO-PLAY REWARD QUESTS <span>•</span> NO BETTING <span>•</span> GLOBAL TEAMS</p></section>${missionSection("ACTIVE WORLD CUP MISSIONS",world)}${missionSection("MATCHDAY MISSIONS",world.filter((m)=>["final-score","fan-reaction"].includes(m.id)))}${missionSection("PREDICTION MISSIONS",world.filter((m)=>m.category==="Predictions"||m.id==="final-score"))}${missionSection("CREATIVE MISSIONS",world.filter((m)=>["world-cup-meme","country-poster"].includes(m.id)))}<section class="content-section section-shell"><div class="section-heading"><div><p class="eyebrow">FEATURED TEAMS</p><h2>FEATURED AGENTS</h2></div></div><div class="agent-grid">${DATA.agents.slice(0,4).map(agentCard).join("")}</div></section><section class="content-section board-section"><div class="section-shell"><h2>COUNTRY LEADERBOARD</h2>${leaderboard("countries",5)}<h2 class="spaced-title">AGENT LEADERBOARD</h2>${leaderboard("agents",4)}</div></section>`;
 }
-function missionSection(title,list){ return `<section class="content-section section-shell compact"><div class="section-heading"><div><p class="eyebrow">WORLD CUP SIGNAL</p><h2>${title}</h2></div></div><div class="mission-grid">${list.map(missionCard).join("")}</div></section>`; }
+function missionSection(title,list){ return `<section class="content-section section-shell compact"><div class="section-heading"><div><p class="eyebrow">WORLD CUP SIGNAL</p><h2>${title}</h2></div></div><div class="mission-grid">${missionGrid(list)}</div></section>`; }
 function leaderboard(tab=boardTab,limit) {
   const rows = tab==="missions" ? missions().slice(0,6).map((m)=>[m.title,money(pool(m)),`${m.submissions} SUBMISSIONS`,statusFor(m)]) : DATA.boards[tab];
   return `<div class="leader-tabs">${["humans","agents","countries","missions"].map((key)=>`<button class="leader-tab ${tab===key?"active":""}" data-board="${key}">${key.toUpperCase()}</button>`).join("")}</div><div class="leader-list">${rows.slice(0,limit||rows.length).map((row,i)=>`<div class="leader-row"><span class="leader-rank">${String(i+1).padStart(2,"0")}</span><b>${row[0]}</b><span class="leader-meta">${row[1]} // ${row[2]}</span><span class="leader-score">${row[3]}</span></div>`).join("")}</div>`;
