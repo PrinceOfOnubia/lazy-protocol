@@ -1,11 +1,18 @@
+import { Connection } from "@solana/web3.js";
+import { WalletReadyState } from "@solana/wallet-adapter-base";
+import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
+import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
+import { TrustWalletAdapter } from "@solana/wallet-adapter-trust";
+
 const DATA = window.LAZY_DATA;
 const STORAGE_KEY = "lazy-protocol-mvp-state";
-const DEMO_WALLET = "7xLP4nA9sQeK2vR8YzT6mWc3JfH5uB1p";
 const LAZY_X_RULE = "Your X post must tag @LazyProtocol.";
 const ADMIN_CATEGORIES = ["World Cup", "Creative", "Predictions", "Research", "Community", "Real World", "Agents", "Sponsored"];
 const missionFilters = ["Highest", ...ADMIN_CATEGORIES, "Ending Soon", "Expired"];
 const configuredApi = import.meta.env?.VITE_API_URL || import.meta.env?.VITE_API_BASE_URL || window.LAZY_CONFIG?.API_BASE_URL;
 const API_BASE = configuredApi && !configuredApi.includes("%VITE_") ? configuredApi.replace(/\/$/, "") : "";
+const SOLANA_RPC_URL = import.meta.env?.VITE_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+const solanaConnection = new Connection(SOLANA_RPC_URL, "confirmed");
 const app = document.querySelector("#app");
 const modalRoot = document.querySelector("#modal-root");
 const toast = document.querySelector(".toast");
@@ -29,6 +36,21 @@ let profileSyncWarning = "";
 
 const defaultState = { wallet:null, user:null, username:"HUMAN_001", avatarUrl:null, joined:[], submitted:[], boosts:{}, customMissions:[], submissions:[] };
 let state = { ...defaultState, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") };
+if (state.wallet === "7xLP4nA9sQeK2vR8YzT6mWc3JfH5uB1p") state.wallet = null;
+let activeWallet = null;
+
+const installed = (getter) => {
+  try { return Boolean(getter()); } catch (_error) { return false; }
+};
+const injectedWallets = [
+  { key:"backpack", name:"Backpack", ready:()=>installed(()=>window.backpack?.solana), connect:async()=>{const provider=window.backpack.solana;const response=await provider.connect();return { publicKey: response?.publicKey || provider.publicKey, disconnect:()=>provider.disconnect?.() };}},
+  { key:"glow", name:"Glow", ready:()=>installed(()=>window.glowSolana || window.glow?.solana), connect:async()=>{const provider=window.glowSolana || window.glow.solana;const response=await provider.connect();return { publicKey: response?.publicKey || provider.publicKey, disconnect:()=>provider.disconnect?.() };}},
+];
+const adapterWallets = [
+  { key:"phantom", name:"Phantom", adapter:new PhantomWalletAdapter() },
+  { key:"solflare", name:"Solflare", adapter:new SolflareWalletAdapter() },
+  { key:"trust", name:"Trust Wallet", adapter:new TrustWalletAdapter() },
+];
 
 function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 function money(value) { return `$${Number(value).toLocaleString()}`; }
@@ -81,27 +103,46 @@ async function syncWalletProfile(wallet) {
     return null;
   }
 }
-async function connectWalletLocal() {
-  let wallet = DEMO_WALLET;
+function walletOptions() {
+  const adapterOptions = adapterWallets.map((item)=>({
+    key:item.key,
+    name:item.name,
+    ready:item.adapter.readyState === WalletReadyState.Installed || item.adapter.readyState === WalletReadyState.Loadable,
+    connect:async()=>{ await item.adapter.connect(); return { publicKey:item.adapter.publicKey, disconnect:()=>item.adapter.disconnect() }; },
+  }));
+  const injectedOptions = injectedWallets.map((item)=>({ key:item.key, name:item.name, ready:item.ready(), connect:item.connect }));
+  return [...adapterOptions, ...injectedOptions];
+}
+async function connectWallet(key) {
+  const option = walletOptions().find((item)=>item.key===key);
+  if (!option) return showToast("WALLET OPTION NOT AVAILABLE");
+  if (!option.ready) return showToast(`${option.name.toUpperCase()} WALLET NOT DETECTED`);
   try {
-    const provider = window.solana;
-    if (provider?.connect) {
-      const response = await provider.connect();
-      wallet = response?.publicKey?.toString?.() || provider.publicKey?.toString?.() || wallet;
-    }
-  } catch (_error) {
-    wallet = DEMO_WALLET;
+    const connected = await option.connect();
+    const wallet = connected.publicKey?.toString?.();
+    if (!wallet) throw new Error("Wallet did not return a public key.");
+    activeWallet = connected;
+    state.wallet = wallet;
+    state.user = state.user || { wallet, username: state.username, avatarUrl: state.avatarUrl || null, xVerified: false, xHandle: null };
+    state.user.wallet = wallet;
+    state.username = state.user.username || state.username;
+    save();
+    closeModal();
+    updateWalletUI();
+    render();
+    showToast("WALLET CONNECTED");
+    syncWalletProfile(wallet);
+  } catch (error) {
+    showToast(error.message || "WALLET CONNECTION FAILED");
   }
-  state.wallet = wallet;
-  state.user = state.user || { wallet, username: state.username, avatarUrl: state.avatarUrl || null, xVerified: false, xHandle: null };
-  state.user.wallet = wallet;
-  state.username = state.user.username || state.username;
+}
+async function disconnectWallet() {
+  await activeWallet?.disconnect?.();
+  activeWallet = null;
+  state.wallet = null;
   save();
-  closeModal();
-  updateWalletUI();
   render();
-  showToast("WALLET CONNECTED");
-  syncWalletProfile(wallet);
+  showToast("WALLET DISCONNECTED");
 }
 async function refreshRemoteData() {
   if (!API_BASE) return;
@@ -315,8 +356,9 @@ function renderProfile() {
   if(!state.wallet) return app.innerHTML=`<section class="agent-profile-strip"><div class="section-shell"><p class="eyebrow">HUMAN PROFILE // LOCKED</p><article class="panel agent-profile-card"><div class="agent-head large"><span class="agent-avatar">H</span><div><h2>CONNECT WALLET</h2><span class="handle">Create your Lazy profile.</span><p class="agent-profile-bio">X is only needed when you submit an entry.</p><button class="button primary" data-open-wallet>CONNECT WALLET</button></div></div></article></div></section>`;
   const joined=missions().filter((m)=>state.joined.includes(m.id)); const submitted=missions().filter((m)=>state.submitted.includes(m.id)); const boosted=missions().filter((m)=>state.boosts[m.id]);
   const xStatus = verifiedX() ? `X VERIFIED <b>@${state.user.xHandle}</b>` : `X NOT CONNECTED <b>REQUIRED ONLY FOR SUBMISSIONS</b>`;
+  const xButton = verifiedX() ? `<button class="button secondary" disabled>@${state.user.xHandle}</button>` : `<button class="button secondary" data-connect-x>CONNECT X</button>`;
   const syncNotice = profileSyncWarning ? `<p class="joined-note">${profileSyncWarning}</p>` : "";
-  app.innerHTML=`<section class="agent-profile-strip"><div class="section-shell"><p class="eyebrow">HUMAN PROFILE // ACTIVE</p><article class="panel agent-profile-card user-profile-card">${avatarMarkup()}<div><h2>${state.user?.username || state.username}</h2><span class="handle">${shortWallet()}</span><p class="profile-line">CONNECTED WALLET <b>${state.wallet}</b></p><p class="profile-line">${xStatus}</p>${syncNotice}<p class="agent-profile-bio">X is only used to verify submissions. Your Lazy avatar is independent.</p><div class="action-row"><button class="button primary" data-edit-profile>EDIT PROFILE</button><button class="button secondary" data-disconnect>DISCONNECT</button></div></div></article></div></section><section class="section-shell profile-stats"><div><small>MISSIONS JOINED</small><b>${state.user?.missionsJoined ?? joined.length}</b></div><div><small>SUBMISSIONS</small><b>${state.user?.submissions ?? submitted.length}</b></div><div><small>REWARDS EARNED</small><b>${money(state.user?.rewardsEarned ?? 1240)}</b></div><div><small>BOOSTED MISSIONS</small><b>${state.user?.boostedMissions ?? boosted.length}</b></div></section>${profileGroup("ACTIVE MISSIONS",joined)}${profileGroup("SUBMITTED MISSIONS",submitted)}${profileGroup("BOOSTED MISSIONS",boosted)}`;
+  app.innerHTML=`<section class="agent-profile-strip"><div class="section-shell"><p class="eyebrow">HUMAN PROFILE // ACTIVE</p><article class="panel agent-profile-card user-profile-card">${avatarMarkup()}<div><h2>${state.user?.username || state.username}</h2><span class="handle">${shortWallet()}</span><p class="profile-line">CONNECTED WALLET <b>${state.wallet}</b></p><p class="profile-line">${xStatus}</p>${syncNotice}<div class="action-row"><button class="button primary" data-edit-profile>EDIT PROFILE</button>${xButton}</div></div></article></div></section><section class="section-shell profile-stats"><div><small>MISSIONS JOINED</small><b>${state.user?.missionsJoined ?? joined.length}</b></div><div><small>SUBMISSIONS</small><b>${state.user?.submissions ?? submitted.length}</b></div><div><small>REWARDS EARNED</small><b>${money(state.user?.rewardsEarned ?? 1240)}</b></div><div><small>BOOSTED MISSIONS</small><b>${state.user?.boostedMissions ?? boosted.length}</b></div></section>${profileGroup("ACTIVE MISSIONS",joined)}${profileGroup("SUBMITTED MISSIONS",submitted)}${profileGroup("BOOSTED MISSIONS",boosted)}`;
 }
 function profileGroup(title,list){return `<section class="content-section section-shell compact"><div class="section-heading"><h2>${title}</h2></div>${list.length?`<div class="mission-grid">${list.map((item)=>missionCard(item)).join("")}</div>`:`<div class="empty">NO ${title.toLowerCase()} YET.</div>`}</section>`;}
 function renderCreate() {
@@ -328,7 +370,7 @@ function renderInfo(type) {
 }
 function renderAdmin() {
   if (!state.wallet) return app.innerHTML=`${pageTop("ADMIN // LOCKED","CONNECT ADMIN WALLET","Connect an approved admin wallet to manage missions, agents, users, submissions, and boosts.")}<section class="section-shell content-section compact"><button class="button primary" data-open-wallet>CONNECT WALLET</button></section>`;
-  if (API_BASE && !liveData.admin) api("/admin/overview").then((payload)=>{ liveData.admin=payload; render(); }).catch((error)=>{ app.innerHTML=`${pageTop("ADMIN // ACCESS CHECK","ADMIN PANEL","${error.message}")}<section class="section-shell content-section compact"><button class="button secondary" data-disconnect>DISCONNECT</button></section>`; });
+  if (API_BASE && !liveData.admin) api("/admin/overview").then((payload)=>{ liveData.admin=payload; render(); }).catch((error)=>{ app.innerHTML=`${pageTop("ADMIN // ACCESS CHECK","ADMIN PANEL","${error.message}")}<section class="section-shell content-section compact"><a class="button secondary" href="${routeHref("/profile")}" data-route>VIEW PROFILE</a></section>`; });
   const admin = liveData.admin;
   if (!admin) return app.innerHTML=`${pageTop("ADMIN // LOADING","ADMIN PANEL","Loading Lazy Protocol database data.")}<section class="section-shell content-section compact">${profileSyncWarning ? `<div class="empty">${profileSyncWarning}</div>` : `<div class="empty">LOADING ADMIN DATA...</div>`}</section>`;
   const filteredSubmissions = admin.submissions.filter((s)=> (adminStatusFilter==="All" || String(s.status).toLowerCase()===adminStatusFilter.toLowerCase()) && (adminCategoryFilter==="All" || s.missionCategory===adminCategoryFilter) && (adminMissionFilter==="All" || s.missionId===adminMissionFilter));
@@ -382,7 +424,7 @@ function renderNotFound(){app.innerHTML=`${pageTop("404 // SIGNAL LOST","PAGE NO
 
 function modal(content){ modalRoot.innerHTML=`<div class="modal-backdrop"><section class="modal" role="dialog" aria-modal="true"><button class="modal-close" data-close-modal aria-label="Close">×</button>${content}</section></div>`; }
 function openWallet(){
-  modal(`<p class="eyebrow">HUMAN AUTHENTICATION</p><h2>CONNECT WALLET</h2><button class="wallet-option" data-connect><span>◈ PHANTOM</span></button><button class="wallet-option" data-connect><span>□ DEMO WALLET</span></button>`);
+  modal(`<p class="eyebrow">SOLANA WALLET</p><h2>CONNECT WALLET</h2>${walletOptions().map((wallet)=>`<button class="wallet-option" data-connect-wallet="${wallet.key}" ${wallet.ready?"":"disabled"}><span>◈ ${wallet.name.toUpperCase()}</span><em>${wallet.ready ? "READY" : "NOT INSTALLED"}</em></button>`).join("")}`);
 }
 function openBoost(id){ const item=mission(id); modal(`<p class="eyebrow">REWARD SIGNAL // ${item.title}</p><h2>BOOST REWARD</h2><p>Onchain reward boost integration pending.</p><form id="boost-form" data-id="${id}"><div class="boost-total triple"><span>CURRENT POOL <b>${money(pool(item))}</b></span><span>YOUR BOOST <b data-boost-preview>${money(0)}</b></span><span>NEW POOL <b data-boost-total>${money(pool(item))}</b></span></div><label>AMOUNT TO BOOST<div class="currency-input"><span>$</span><input required min="1" type="number" name="amount" placeholder="25"></div></label><button class="button primary" type="submit">CONFIRM BOOST</button></form>`); }
 function openSubmit(id){ const item=mission(id); if(!verifiedX()) return openConnectX("Connect X to verify this submission belongs to you."); modal(`<p class="eyebrow">PROOF CONSOLE // ${item.title}</p><h2>SUBMIT ATTEMPT</h2><p>Your submitted X post must belong to @${state.user.xHandle} and tag @LazyProtocol. The API verifies post ownership before accepting proof.</p><form id="submit-form" data-id="${id}"><label>SUBMISSION TITLE<input required name="title"></label><label>DESCRIPTION<textarea required name="description"></textarea></label><label>UPLOAD / PROOF LINK<input required type="url" name="proof" placeholder="https://"></label><label>X POST LINK FROM @${state.user.xHandle}<input required type="url" name="x" placeholder="https://x.com/${state.user.xHandle}/status/..."></label><label>OPTIONAL IMAGE / VIDEO URL<input type="url" name="media"></label><button class="button primary" type="submit">SUBMIT ATTEMPT</button></form>`); }
@@ -461,11 +503,10 @@ document.addEventListener("click",(event)=>{
   if(event.target.closest("[data-open-wallet]")) return openWallet();
   if(event.target.closest("[data-close-modal]")||event.target.classList.contains("modal-backdrop")) return closeModal();
   const walletMenu=event.target.closest("[data-wallet-menu]"); if(walletMenu){ if(state.wallet){const drop=document.querySelector("[data-wallet-dropdown]");drop.hidden=!drop.hidden;drop.innerHTML=`<a href="${routeHref("/profile")}" data-route>PROFILE</a><button data-disconnect>DISCONNECT</button>`;} else openWallet();return;}
-  // TODO: Replace this demo address with the real Solana wallet adapter public key/signature flow.
-  if(event.target.closest("[data-connect]")){ connectWalletLocal(); return; }
+  const walletChoice=event.target.closest("[data-connect-wallet]"); if(walletChoice){ connectWallet(walletChoice.dataset.connectWallet); return; }
   if(event.target.closest("[data-connect-x]")) return openConnectX();
   if(event.target.closest("[data-start-x]")){ api("/auth/x/start",{method:"POST",body:JSON.stringify({wallet:state.wallet})}).then((payload)=>{ location.href=payload.url; }).catch((error)=>showToast(error.message)); return; }
-  if(event.target.closest("[data-disconnect]")){state.wallet=null;save();render();showToast("WALLET DISCONNECTED");return;}
+  if(event.target.closest("[data-disconnect]")){disconnectWallet();return;}
   const action=event.target.closest("[data-mission-action]"); if(action){ missionAction(action.dataset.missionAction); return; }
   const boost=event.target.closest("[data-boost]"); if(boost)return openBoost(boost.dataset.boost);
   const filter=event.target.closest("[data-filter]"); if(filter){missionFilter=filter.dataset.filter;renderMissions();return;}
