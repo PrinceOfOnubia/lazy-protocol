@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lazy Protocol</title>
+  </head>
+  <body>
+    <script>
+      const repoBase = location.pathname.startsWith("/lazy-protocol") ? "/lazy-protocol" : "";
+      const route = location.pathname.slice(repoBase.length) || "/";
+      location.replace(`${repoBase}/?route=${encodeURIComponent(route)}`);
+    </script>
+  </body>
+</html>
