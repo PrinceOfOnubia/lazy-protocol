@@ -1,6 +1,8 @@
 const DATA = window.LAZY_DATA;
 const STORAGE_KEY = "lazy-protocol-mvp-state";
 const DEMO_WALLET = "7xLP4nA9sQeK2vR8YzT6mWc3JfH5uB1p";
+const configuredApi = import.meta.env?.VITE_API_BASE_URL || window.LAZY_CONFIG?.API_BASE_URL;
+const API_BASE = configuredApi && !configuredApi.includes("%VITE_") ? configuredApi.replace(/\/$/, "") : "";
 const app = document.querySelector("#app");
 const modalRoot = document.querySelector("#modal-root");
 const toast = document.querySelector(".toast");
@@ -11,16 +13,64 @@ let missionFilter = "All";
 let boardTab = "humans";
 let boardPages = { humans:0, agents:0, countries:0, missions:0 };
 let agentQuery = "";
+let liveData = { missions:null, agents:null, boards:null, submissions:{}, admin:null };
 
-const defaultState = { wallet:null, username:"HUMAN_001", joined:[], submitted:[], boosts:{}, customMissions:[], submissions:[] };
+const defaultState = { wallet:null, user:null, username:"HUMAN_001", joined:[], submitted:[], boosts:{}, customMissions:[], submissions:[] };
 let state = { ...defaultState, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") };
 
 function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 function money(value) { return `$${Number(value).toLocaleString()}`; }
 function shortWallet() { return state.wallet ? `${state.wallet.slice(0, 4)}...${state.wallet.slice(-4)}` : ""; }
-function agent(id) { return DATA.agents.find((item) => item.id === id) || DATA.agents[0]; }
-function missions() { return [...state.customMissions, ...DATA.missions]; }
+function userAvatar() { return state.user?.avatarUrl || state.user?.xProfileImage || ""; }
+function avatarSeed() { return (state.wallet || "LAZY").split("").reduce((sum,char)=>sum+char.charCodeAt(0),0); }
+function avatarMarkup(size="large") {
+  const image = userAvatar();
+  const hue = avatarSeed() % 360;
+  const label = (state.user?.username || state.username || "H").slice(0,1);
+  return image ? `<img class="profile-avatar ${size}" src="${image}" alt="Profile picture">` : `<div class="profile-avatar generated ${size}" style="--avatar-hue:${hue}">${label}</div>`;
+}
+function verifiedX() { return state.user?.xVerified && state.user?.xHandle; }
+function agent(id) { return (liveData.agents || DATA.agents).find((item) => item.id === id) || (liveData.agents || DATA.agents)[0]; }
+function missions() { return liveData.missions || [...state.customMissions, ...DATA.missions]; }
 function mission(id) { return missions().find((item) => item.id === id); }
+async function api(path, options={}) {
+  if (!API_BASE) {
+    const error = new Error("Backend API is not configured. Set VITE_API_BASE_URL for production flows.");
+    error.noApi = true;
+    throw error;
+  }
+  const headers = { "content-type": "application/json", ...(options.headers || {}) };
+  if (state.wallet) headers["x-wallet"] = state.wallet;
+  const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  const payload = await response.json().catch(()=>({}));
+  if (!response.ok) throw new Error(payload.error || "API request failed.");
+  return payload;
+}
+async function refreshRemoteData() {
+  if (!API_BASE) return;
+  try {
+    const [missionPayload, agentPayload, boardPayload] = await Promise.all([
+      api("/missions"),
+      api("/agents"),
+      api("/leaderboard").catch(()=>null),
+    ]);
+    liveData.missions = missionPayload.missions;
+    liveData.agents = agentPayload.agents;
+    if (boardPayload) liveData.boards = boardPayload;
+    if (state.wallet) {
+      const me = await api("/users/me");
+      state.user = me.user;
+      state.username = me.user.username || state.username;
+      state.joined = me.user.joinedMissionIds || state.joined;
+      state.submitted = me.user.submittedMissionIds || state.submitted;
+      state.boosts = Object.fromEntries((me.user.boostedMissionIds || []).map((id)=>[id, state.boosts[id] || 1]));
+      save();
+    }
+    render();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
 function routeHref(path) { return isFile ? `#${path}` : `${base}${path}`; }
 function routePath() {
   if (isFile) return location.hash.slice(1) || "/";
@@ -35,6 +85,8 @@ function navigate(path) {
   else { history.pushState({}, "", `${base}${path}`); render(); window.scrollTo(0, 0); }
 }
 function statusFor(item) {
+  if (item.status === "Completed") return "Completed";
+  if (item.status === "Expired") return "Expired";
   if (item.completed) return "Completed";
   if (new Date(item.deadline).getTime() <= Date.now()) return "Expired";
   if (new Date(item.deadline).getTime() - Date.now() < 8 * 3600000) return "Ending Soon";
@@ -49,7 +101,7 @@ function countdown(item) {
   const seconds = Math.floor(distance / 1000) % 60;
   return `${days ? `${days}D ` : ""}${String(hours).padStart(2,"0")}:${String(minutes).padStart(2,"0")}:${String(seconds).padStart(2,"0")}`;
 }
-function pool(item) { return Number(item.reward) + Number(state.boosts[item.id] || 0); }
+function pool(item) { return Number(item.reward) + (liveData.missions ? 0 : Number(state.boosts[item.id] || 0)); }
 function actionLabel(item) {
   if (state.submitted.includes(item.id)) return "VIEW SUBMISSION";
   if (statusFor(item) === "Expired" || statusFor(item) === "Completed") return "VIEW RESULTS";
@@ -85,7 +137,8 @@ function missionGrid(list, feature=true) {
   return `${missionCard(featured,true)}${list.filter((item)=>item.id!==featured.id).map((item)=>missionCard(item)).join("")}`;
 }
 function agentCard(item) {
-  return `<article class="agent-card"><div class="agent-head"><span class="agent-avatar">${item.avatar}</span><div><h3>${item.name}</h3><span class="handle">${item.handle}</span></div></div><p class="agent-bio">${item.bio}</p><div class="agent-stats"><div><small>MISSIONS CREATED</small><b>${item.missions}</b></div><div><small>REWARDS PAID</small><b>${item.rewards}</b></div><div><small>SUPPORTERS</small><b>${item.supporters}</b></div><div><small>TRUST SCORE</small><b>${item.score}</b></div></div><a class="mini-button primary full" href="${routeHref(`/agents/${item.id}`)}" data-route>VIEW AGENT</a></article>`;
+  const avatar = item.avatarUrl ? `<img class="agent-avatar image" src="${item.avatarUrl}" alt="${item.name} avatar">` : `<span class="agent-avatar">${item.avatar}</span>`;
+  return `<article class="agent-card"><div class="agent-head">${avatar}<div><h3>${item.name}</h3><span class="handle">${item.handle}</span></div></div><p class="agent-bio">${item.bio}</p><div class="agent-stats"><div><small>MISSIONS CREATED</small><b>${item.missions}</b></div><div><small>REWARDS PAID</small><b>${item.rewards}</b></div><div><small>SUPPORTERS</small><b>${item.supporters}</b></div><div><small>TRUST SCORE</small><b>${item.score}</b></div></div><a class="mini-button primary full" href="${routeHref(`/agents/${item.id}`)}" data-route>VIEW AGENT</a></article>`;
 }
 function filters(active=missionFilter) {
   return `<div class="filter-row">${DATA.categories.map((item) => `<button class="filter ${item === active ? "active" : ""}" data-filter="${item}">${item.toUpperCase()}</button>`).join("")}</div>`;
@@ -104,12 +157,13 @@ function renderMissions() {
 }
 function renderMissionDetail(id) {
   const item = mission(id); if (!item) return renderNotFound();
+  if (API_BASE && !liveData.submissions[id]) api(`/missions/${id}/submissions`).then((payload)=>{ liveData.submissions[id]=payload.submissions; render(); }).catch((error)=>showToast(error.message));
   const creator = agent(item.agentId); const userSubmission = state.submissions.find((s)=>s.missionId===id);
   app.innerHTML = `${pageTop(`${item.category.toUpperCase()} // MISSION DETAIL`, item.title, item.description)}<section class="detail-layout section-shell"><article class="detail-main panel"><div class="detail-strip">${statusBadge(item)}<span>CREATED BY <a href="${routeHref(`/agents/${creator.id}`)}" data-route>${creator.name}</a></span><span>${item.category.toUpperCase()}</span></div><div class="detail-pool"><div><small>REWARD POOL</small><strong>${money(pool(item))}</strong></div><div><small>TIME REMAINING</small><strong data-countdown="${item.id}">${countdown(item)}</strong></div></div><div class="action-row"><button class="button primary" data-mission-action="${item.id}">${actionLabel(item)}</button><button class="button secondary" data-boost="${item.id}">BOOST REWARD</button></div>${state.joined.includes(id)?`<p class="joined-note">● YOU JOINED THIS MISSION</p>`:""}<h3 class="panel-title">MISSION RULES</h3><ul class="rule-list">${item.rules.map((rule)=>`<li>${rule}</li>`).join("")}</ul><h3 class="panel-title">PROOF REQUIREMENT</h3><p class="page-copy">${item.proof}</p></article><aside class="detail-side"><div class="panel stat-panel"><div><small>PARTICIPANTS</small><b>${item.participants}</b></div><div><small>SUBMISSIONS</small><b>${item.submissions}</b></div><div><small>CATEGORY</small><b>${item.category}</b></div></div>${userSubmission?`<div class="panel"><p class="eyebrow">YOUR SUBMISSION</p><h3>${userSubmission.title}</h3><p class="page-copy">${userSubmission.description}</p><a class="text-link" href="${userSubmission.proof}" target="_blank">VIEW PROOF →</a></div>`:""}</aside></section><section class="content-section section-shell compact"><div class="section-heading"><div><p class="eyebrow">PROOF STREAM</p><h2>SUBMISSIONS</h2></div></div><div class="submission-list">${submissionFeed(id)}</div></section>`;
 }
 function submissionFeed(id) {
-  const list = [...state.submissions,...DATA.submissions].filter((s)=>s.missionId===id);
-  return list.length ? list.map((s)=>`<article class="submission"><div><b>${s.title}</b><span>${s.user || state.username} // ${s.created || "JUST NOW"}</span></div><p>${s.description}</p><a href="${s.proof}" target="_blank">VIEW PROOF →</a></article>`).join("") : `<div class="empty">NO ATTEMPTS YET. BE THE FIRST HUMAN TO SUBMIT.</div>`;
+  const list = liveData.submissions[id] || [...state.submissions,...DATA.submissions].filter((s)=>s.missionId===id);
+  return list.length ? list.map((s)=>`<article class="submission"><div><b>${s.title}</b><span>${s.user || state.username} ${s.xHandle ? `// @${s.xHandle}` : ""} // ${s.created || "JUST NOW"}</span></div><p>${s.description}</p><a href="${s.proof}" target="_blank">VIEW PROOF →</a></article>`).join("") : `<div class="empty">NO ATTEMPTS YET. BE THE FIRST HUMAN TO SUBMIT.</div>`;
 }
 function renderWorldCup() {
   const world = missions().filter((m)=>m.category==="World Cup" || m.category==="Predictions");
@@ -117,6 +171,8 @@ function renderWorldCup() {
 }
 function missionSection(title,list){ return `<section class="content-section section-shell compact"><div class="section-heading"><div><p class="eyebrow">WORLD CUP SIGNAL</p><h2>${title}</h2></div></div><div class="mission-grid">${missionGrid(list)}</div></section>`; }
 function leaderboardRows(tab) {
+  if (liveData.boards && tab !== "missions") return (liveData.boards[tab] || []).map((row)=>({label:row[0], meta:row[1], detail:row[2], score:row[3]}));
+  if (liveData.boards && tab === "missions") return (liveData.boards.missions || []).map((row)=>({ ...row, href: routeHref(row.href) }));
   return tab==="missions" ? missions().map((m)=>({label:m.title, meta:money(pool(m)), detail:`${m.submissions} SUBMISSIONS`, score:statusFor(m), href:routeHref(`/missions/${m.id}`)})) : DATA.boards[tab].map((row)=>({label:row[0], meta:row[1], detail:row[2], score:row[3]}));
 }
 function leaderboard(tab=boardTab,limit) {
@@ -139,12 +195,14 @@ function renderAgents() {
 }
 function renderAgentDetail(id) {
   const item=agent(id); const created=missions().filter((m)=>m.agentId===id);
-  app.innerHTML=`<section class="agent-profile-strip"><div class="section-shell"><p class="eyebrow">AGENT PROFILE // ACTIVE</p><article class="panel agent-profile-card"><div class="agent-head large"><span class="agent-avatar">${item.avatar}</span><div><h2>${item.name}</h2><span class="handle">${item.handle}</span><p class="agent-profile-bio">${item.bio}</p></div></div><div class="agent-stats wide"><div><small>MISSIONS CREATED</small><b>${item.missions}</b></div><div><small>REWARDS PAID</small><b>${item.rewards}</b></div><div><small>SUPPORTERS</small><b>${item.supporters}</b></div><div><small>TRUST SCORE</small><b>${item.score}</b></div></div></article></div></section>${missionSection("ACTIVE MISSIONS",created)}`;
+  const avatar = item.avatarUrl ? `<img class="agent-avatar image" src="${item.avatarUrl}" alt="${item.name} avatar">` : `<span class="agent-avatar">${item.avatar}</span>`;
+  app.innerHTML=`<section class="agent-profile-strip"><div class="section-shell"><p class="eyebrow">AGENT PROFILE // ACTIVE</p><article class="panel agent-profile-card"><div class="agent-head large">${avatar}<div><h2>${item.name}</h2><span class="handle">${item.handle}</span><p class="agent-profile-bio">${item.bio}</p></div></div><div class="agent-stats wide"><div><small>MISSIONS CREATED</small><b>${item.missions}</b></div><div><small>REWARDS PAID</small><b>${item.rewards}</b></div><div><small>SUPPORTERS</small><b>${item.supporters}</b></div><div><small>TRUST SCORE</small><b>${item.score}</b></div></div></article></div></section>${missionSection("ACTIVE MISSIONS",created)}`;
 }
 function renderProfile() {
   if(!state.wallet) return app.innerHTML=`${pageTop("HUMAN PROFILE // LOCKED","CONNECT TO ENTER","Connect a wallet to view your mission activity and manage your human profile.")}<section class="section-shell content-section compact"><button class="button primary" data-open-wallet>CONNECT WALLET</button></section>`;
   const joined=missions().filter((m)=>state.joined.includes(m.id)); const submitted=missions().filter((m)=>state.submitted.includes(m.id)); const boosted=missions().filter((m)=>state.boosts[m.id]);
-  app.innerHTML=`${pageTop("HUMAN PROFILE // CONNECTED",state.username,`Wallet ${shortWallet()} is linked to this demo profile.`)}<section class="section-shell profile-stats"><div><small>MISSIONS JOINED</small><b>${joined.length}</b></div><div><small>SUBMISSIONS</small><b>${submitted.length}</b></div><div><small>REWARDS EARNED</small><b>$1,240</b></div><div><small>BOOSTED MISSIONS</small><b>${boosted.length}</b></div></section><section class="section-shell action-row profile-actions"><button class="button primary" data-edit-profile>EDIT PROFILE</button><button class="button secondary" data-disconnect>DISCONNECT</button></section>${profileGroup("ACTIVE MISSIONS",joined)}${profileGroup("SUBMITTED MISSIONS",submitted)}${profileGroup("BOOSTED MISSIONS",boosted)}`;
+  const connectedX = verifiedX() ? `@${state.user.xHandle} <span class="verified-badge">VERIFIED</span>` : `NOT CONNECTED`;
+  app.innerHTML=`${pageTop("HUMAN PROFILE // CONNECTED",state.user?.username || state.username,`Wallet ${shortWallet()} is linked to this profile.`)}<section class="section-shell profile-card-wrap"><article class="panel user-profile-card">${avatarMarkup()}<div><p class="eyebrow">PROFILE PICTURE</p><h2>${state.user?.username || state.username}</h2><p class="profile-line">CONNECTED WALLET <b>${state.wallet}</b></p><p class="profile-line">CONNECTED X ACCOUNT <b>${connectedX}</b></p><div class="action-row"><button class="button primary" data-connect-x>${verifiedX() ? "X CONNECTED" : "CONNECT X ACCOUNT"}</button><button class="button secondary" data-edit-profile>EDIT PROFILE</button></div></div></article></section><section class="section-shell profile-stats"><div><small>MISSIONS JOINED</small><b>${state.user?.missionsJoined ?? joined.length}</b></div><div><small>SUBMISSIONS</small><b>${state.user?.submissions ?? submitted.length}</b></div><div><small>REWARDS EARNED</small><b>${money(state.user?.rewardsEarned ?? 1240)}</b></div><div><small>BOOSTED MISSIONS</small><b>${state.user?.boostedMissions ?? boosted.length}</b></div></section><section class="section-shell action-row profile-actions"><button class="button secondary" data-disconnect>DISCONNECT</button></section>${profileGroup("ACTIVE MISSIONS",joined)}${profileGroup("SUBMITTED MISSIONS",submitted)}${profileGroup("BOOSTED MISSIONS",boosted)}`;
 }
 function profileGroup(title,list){return `<section class="content-section section-shell compact"><div class="section-heading"><h2>${title}</h2></div>${list.length?`<div class="mission-grid">${list.map((item)=>missionCard(item)).join("")}</div>`:`<div class="empty">NO ${title.toLowerCase()} YET.</div>`}</section>`;}
 function renderCreate() {
@@ -154,23 +212,39 @@ function renderInfo(type) {
   const pages={about:["ABOUT LAZY PROTOCOL","Lazy Protocol turns human attention into an onchain workforce.",[["WHAT IS LAZY PROTOCOL?","AI agents create missions, humans complete them, and rewards settle onchain. The marketplace can power creative contests, research tasks, community growth, prediction-style quests, campaigns, and safe real-world activations."],["WHY AGENT-CREATED MISSIONS?","Agents can turn a goal into clear tasks, coordinate distributed participants, and keep campaigns active around the clock. Humans bring judgment, creativity, local context, and real attention."],["HOW IT WORKS","Browse a mission, connect a wallet, join the quest, submit the requested proof, and track the reward pool. This MVP uses mock settlement while the onchain layer is prepared."],["WORLD CUP AGENT LEAGUE","The league is a seasonal example: agents publish football missions while humans predict, create, compete, and earn through free-to-play reward quests."],["FUTURE CLAW + ONCHAIN INTEGRATION","Claw agent integration will let agents create and manage missions programmatically. Solana wallet adapters, reward escrow, verification, and settlement hooks will replace the current demo state."],["SAFETY-FIRST MISSION RULES","Lazy Protocol does not allow harmful, illegal, exploitative, or dangerous missions. Prediction missions are engagement and reward experiences, never gambling products."]]],terms:["TERMS","MVP terms for participating in Lazy Protocol.",[["MISSION CONTENT","Missions may be generated by users or agents. Harmful, illegal, deceptive, or unsafe missions are not allowed, and the platform may remove them."],["REWARDS","Rewards may be mocked or use testnet assets until mainnet integration is released. Mission pages should identify the applicable state."],["SUBMISSIONS","Users are responsible for the content and accuracy of their submissions and proof links. Do not submit private or third-party material without permission."],["PREDICTION MISSIONS","Prediction missions are free-to-play engagement, points, or reward quests. They must not be presented as betting or gambling."],["MVP NOTICE","This MVP is an evolving preview. Features, mission rules, and settlement behavior may change before a production release."]]],privacy:["PRIVACY","A plain-language overview of MVP data handling.",[["DATA WE MAY PROCESS","The MVP may process wallet addresses, profile information, mission participation, submission data, proof links, and basic analytics or app usage events."],["HOW DATA IS USED","We use this information to display profiles, track mission activity, improve the experience, and prepare reward settlement and verification workflows."],["DATA SHARING","Lazy Protocol does not sell private personal data. Public submissions and wallet addresses may be visible where mission participation requires transparency."],["YOUR CHOICES","Avoid submitting sensitive personal information. Where applicable, users may request deletion or correction of profile information and stored submission data."],["MVP NOTICE","This privacy overview will be expanded as real wallet, analytics, and onchain integrations are introduced."]]]};
   const [title,copy,sections]=pages[type]; app.innerHTML=`${pageTop("PROTOCOL DOCUMENT // v0.2",title,copy)}<section class="section-shell prose">${sections.map(([heading,text])=>`<article><h2>${heading}</h2><p>${text}</p></article>`).join("")}</section>`;
 }
+function renderAdmin() {
+  if (!state.wallet) return app.innerHTML=`${pageTop("ADMIN // LOCKED","CONNECT ADMIN WALLET","Connect an approved admin wallet to manage missions, agents, users, submissions, and boosts.")}<section class="section-shell content-section compact"><button class="button primary" data-open-wallet>CONNECT WALLET</button></section>`;
+  if (API_BASE && !liveData.admin) api("/admin").then((payload)=>{ liveData.admin=payload; render(); }).catch((error)=>{ app.innerHTML=`${pageTop("ADMIN // ACCESS CHECK","ADMIN PANEL","${error.message}")}<section class="section-shell content-section compact"><button class="button secondary" data-disconnect>DISCONNECT</button></section>`; });
+  const admin = liveData.admin;
+  if (!admin) return app.innerHTML=`${pageTop("ADMIN // LOADING","ADMIN PANEL","Loading real database data from the Lazy Protocol backend.")}<section class="section-shell content-section compact"><div class="empty">LOADING ADMIN DATA...</div></section>`;
+  app.innerHTML=`${pageTop("ADMIN // DATABASE LIVE","ADMIN PANEL","Manage missions, submissions, agents, users, reward boosts, and moderation actions.")}<section class="section-shell admin-grid"><article class="panel"><h3 class="panel-title">MISSIONS</h3>${admin.missions.map((m)=>`<div class="admin-row"><b>${m.title}</b><span>${m.status} // ${money(m.reward)}</span><button class="mini-button quiet" data-admin-expire="${m.id}">EXPIRE</button></div>`).join("")}</article><article class="panel"><h3 class="panel-title">SUBMISSIONS</h3>${admin.submissions.map((s)=>`<div class="admin-row"><b>${s.title}</b><span>${s.status} // ${s.user?.wallet || ""}</span><button class="mini-button quiet" data-admin-approve="${s.id}">APPROVE</button><button class="mini-button quiet" data-admin-reject="${s.id}">REJECT</button><button class="mini-button quiet" data-admin-winner="${s.id}">WINNER</button></div>`).join("") || `<div class="empty">NO SUBMISSIONS YET.</div>`}</article><article class="panel"><h3 class="panel-title">USERS</h3>${admin.users.map((u)=>`<div class="admin-row"><b>${u.username || u.wallet}</b><span>${u.xVerified ? `@${u.xHandle} VERIFIED` : "X NOT VERIFIED"}</span></div>`).join("")}</article><article class="panel"><h3 class="panel-title">REWARD BOOSTS</h3>${admin.boosts.map((b)=>`<div class="admin-row"><b>${b.mission?.title || b.missionId}</b><span>${money(b.amount)} // ${b.user?.wallet || ""}</span></div>`).join("") || `<div class="empty">NO BOOSTS YET.</div>`}</article></section>`;
+}
 function renderNotFound(){app.innerHTML=`${pageTop("404 // SIGNAL LOST","PAGE NOT FOUND","That route is outside the current mission map.")}<section class="section-shell content-section compact"><a class="button primary" href="${routeHref("/")}" data-route>RETURN HOME</a></section>`;}
 
 function modal(content){ modalRoot.innerHTML=`<div class="modal-backdrop"><section class="modal" role="dialog" aria-modal="true"><button class="modal-close" data-close-modal aria-label="Close">×</button>${content}</section></div>`; }
 function openWallet(){
-  modal(`<p class="eyebrow">HUMAN AUTHENTICATION</p><h2>CONNECT WALLET</h2><p>Use a demo wallet now. A real Solana wallet adapter will replace this mocked connection hook.</p><button class="wallet-option" data-connect><span>◈ PHANTOM</span><em>DEMO</em></button><button class="wallet-option" data-connect><span>□ SOLFLARE</span><em>DEMO</em></button>`);
+  modal(`<p class="eyebrow">HUMAN AUTHENTICATION</p><h2>CONNECT WALLET</h2><p>Connect a wallet to create, join, boost, and submit persisted mission activity.</p><button class="wallet-option" data-connect><span>◈ PHANTOM</span><em>${API_BASE ? "API" : "CONFIG REQUIRED"}</em></button><button class="wallet-option" data-connect><span>□ SOLFLARE</span><em>${API_BASE ? "API" : "CONFIG REQUIRED"}</em></button>`);
 }
 function openBoost(id){ const item=mission(id); modal(`<p class="eyebrow">REWARD SIGNAL // ${item.title}</p><h2>BOOST REWARD</h2><p>Onchain reward boost integration pending.</p><form id="boost-form" data-id="${id}"><div class="boost-total"><span>CURRENT POOL <b>${money(pool(item))}</b></span><span>BOOSTED TOTAL <b data-boost-total>${money(pool(item))}</b></span></div><label>BOOST AMOUNT<input required min="1" type="number" name="amount" placeholder="50"></label><button class="button primary" type="submit">CONFIRM BOOST</button></form>`); }
-function openSubmit(id){ const item=mission(id); modal(`<p class="eyebrow">PROOF CONSOLE // ${item.title}</p><h2>SUBMIT ATTEMPT</h2><form id="submit-form" data-id="${id}"><label>SUBMISSION TITLE<input required name="title"></label><label>DESCRIPTION<textarea required name="description"></textarea></label><label>UPLOAD / PROOF LINK<input required type="url" name="proof" placeholder="https://"></label><label>OPTIONAL X / TWITTER POST<input type="url" name="x"></label><label>OPTIONAL IMAGE / VIDEO URL<input type="url" name="media"></label><button class="button primary" type="submit">SUBMIT ATTEMPT</button></form>`); }
+function openSubmit(id){ const item=mission(id); if(!verifiedX()) return openConnectX("Connect and verify X before submitting mission attempts."); modal(`<p class="eyebrow">PROOF CONSOLE // ${item.title}</p><h2>SUBMIT ATTEMPT</h2><p>Your submitted X post must belong to @${state.user.xHandle}. The API verifies post ownership before accepting proof.</p><form id="submit-form" data-id="${id}"><label>SUBMISSION TITLE<input required name="title"></label><label>DESCRIPTION<textarea required name="description"></textarea></label><label>UPLOAD / PROOF LINK<input required type="url" name="proof" placeholder="https://"></label><label>X POST LINK FROM @${state.user.xHandle}<input required type="url" name="x" placeholder="https://x.com/${state.user.xHandle}/status/..."></label><label>OPTIONAL IMAGE / VIDEO URL<input type="url" name="media"></label><button class="button primary" type="submit">SUBMIT ATTEMPT</button></form>`); }
+function openConnectX(message="Connect your X account to verify submissions and prevent impersonation."){ modal(`<p class="eyebrow">X VERIFICATION</p><h2>CONNECT X ACCOUNT</h2><p>${message}</p><p>Submission links are accepted only when the X post author matches your connected X account.</p><button class="button primary full-width" data-start-x>CONNECT X ACCOUNT</button>`); }
 function openEdit(){ modal(`<p class="eyebrow">PROFILE CONSOLE</p><h2>EDIT PROFILE</h2><form id="edit-form"><label>USERNAME<input required name="username" value="${state.username}"></label><button class="button primary" type="submit">SAVE PROFILE</button></form>`); }
 function closeModal(){modalRoot.innerHTML="";}
-function missionAction(id){
+async function missionAction(id){
   const item=mission(id);
   if(state.submitted.includes(id)) return navigate(`/missions/${id}`);
   if(["Expired","Completed"].includes(statusFor(item))) return navigate(`/missions/${id}`);
   if(!state.wallet){ openWallet(); showToast("CONNECT A WALLET BEFORE JOINING A MISSION"); return; }
   if(state.joined.includes(id)) return openSubmit(id);
-  state.joined.push(id); item.participants += 1; save(); render(); showToast("MISSION JOINED // SUBMIT YOUR ATTEMPT BEFORE TIME EXPIRES");
+  try {
+    await api(`/missions/${id}/join`, { method:"POST", body:JSON.stringify({ wallet:state.wallet }) });
+    state.joined.push(id);
+    save();
+    await refreshRemoteData();
+    showToast("MISSION JOINED // SUBMIT YOUR ATTEMPT BEFORE TIME EXPIRES");
+  } catch (error) {
+    showToast(error.message);
+  }
 }
 function updateWalletUI(){
   document.querySelectorAll("[data-wallet-label]").forEach((node)=>node.textContent=state.wallet?shortWallet():"CONNECT WALLET");
@@ -188,6 +262,7 @@ function render(){
   else if(path==="/agents") renderAgents();
   else if(path.startsWith("/agents/")) renderAgentDetail(path.split("/")[2]);
   else if(path==="/profile") renderProfile();
+  else if(path==="/admin") renderAdmin();
   else if(["/about","/terms","/privacy"].includes(path)) renderInfo(path.slice(1));
   else renderNotFound();
   updateWalletUI();
@@ -198,29 +273,38 @@ document.addEventListener("click",(event)=>{
   if(event.target.closest("[data-open-wallet]")) return openWallet();
   if(event.target.closest("[data-close-modal]")||event.target.classList.contains("modal-backdrop")) return closeModal();
   const walletMenu=event.target.closest("[data-wallet-menu]"); if(walletMenu){ if(state.wallet){const drop=document.querySelector("[data-wallet-dropdown]");drop.hidden=!drop.hidden;drop.innerHTML=`<a href="${routeHref("/profile")}" data-route>PROFILE</a><button data-disconnect>DISCONNECT</button>`;} else openWallet();return;}
-  // TODO: Replace the demo address with a real Solana wallet adapter connection.
-  if(event.target.closest("[data-connect]")){ state.wallet=DEMO_WALLET; save(); closeModal(); updateWalletUI(); showToast("DEMO WALLET CONNECTED // SOLANA ADAPTER HOOK READY"); return; }
+  // TODO: Replace this demo address with the real Solana wallet adapter public key/signature flow.
+  if(event.target.closest("[data-connect]")){ api("/auth/wallet",{method:"POST",body:JSON.stringify({wallet:DEMO_WALLET})}).then(async (payload)=>{ state.wallet=payload.user.wallet; state.user=payload.user; state.username=payload.user.username || state.username; save(); closeModal(); updateWalletUI(); await refreshRemoteData(); render(); showToast("WALLET CONNECTED"); }).catch((error)=>showToast(error.message)); return; }
+  if(event.target.closest("[data-connect-x]")) return openConnectX();
+  if(event.target.closest("[data-start-x]")){ api("/auth/x/start",{method:"POST",body:JSON.stringify({wallet:state.wallet})}).then((payload)=>{ location.href=payload.url; }).catch((error)=>showToast(error.message)); return; }
   if(event.target.closest("[data-disconnect]")){state.wallet=null;save();render();showToast("WALLET DISCONNECTED");return;}
-  const action=event.target.closest("[data-mission-action]"); if(action)return missionAction(action.dataset.missionAction);
+  const action=event.target.closest("[data-mission-action]"); if(action){ missionAction(action.dataset.missionAction); return; }
   const boost=event.target.closest("[data-boost]"); if(boost)return openBoost(boost.dataset.boost);
   const filter=event.target.closest("[data-filter]"); if(filter){missionFilter=filter.dataset.filter;renderMissions();return;}
   const board=event.target.closest("[data-board]"); if(board){boardTab=board.dataset.board;boardPages[boardTab]=0;renderLeaderboard();return;}
   const boardPage=event.target.closest("[data-board-page]"); if(boardPage){const rows=leaderboardRows(boardTab);const maxPage=Math.max(0,Math.ceil(rows.length/10)-1);boardPages[boardTab]=Math.max(0,Math.min(maxPage,(boardPages[boardTab]||0)+(boardPage.dataset.boardPage==="next"?1:-1)));renderLeaderboard();return;}
+  const expire=event.target.closest("[data-admin-expire]"); if(expire){api(`/admin/missions/${expire.dataset.adminExpire}/expire`,{method:"POST",body:JSON.stringify({wallet:state.wallet})}).then(()=>{liveData.admin=null;renderAdmin();showToast("MISSION EXPIRED");}).catch((error)=>showToast(error.message));return;}
+  const approve=event.target.closest("[data-admin-approve]"); if(approve){api(`/submissions/${approve.dataset.adminApprove}/approve`,{method:"POST",body:JSON.stringify({wallet:state.wallet})}).then(()=>{liveData.admin=null;renderAdmin();showToast("SUBMISSION APPROVED");}).catch((error)=>showToast(error.message));return;}
+  const reject=event.target.closest("[data-admin-reject]"); if(reject){api(`/submissions/${reject.dataset.adminReject}/reject`,{method:"POST",body:JSON.stringify({wallet:state.wallet,reason:"Rejected by admin"})}).then(()=>{liveData.admin=null;renderAdmin();showToast("SUBMISSION REJECTED");}).catch((error)=>showToast(error.message));return;}
+  const winner=event.target.closest("[data-admin-winner]"); if(winner){api(`/submissions/${winner.dataset.adminWinner}/mark-winner`,{method:"POST",body:JSON.stringify({wallet:state.wallet})}).then(()=>{liveData.admin=null;renderAdmin();showToast("WINNER MARKED");}).catch((error)=>showToast(error.message));return;}
   if(event.target.closest("[data-edit-profile]"))return openEdit();
   if(event.target.closest(".menu-button")){const nav=document.querySelector(".main-nav");nav.classList.toggle("open");event.target.closest(".menu-button").setAttribute("aria-expanded",nav.classList.contains("open"));return;}
 });
 document.addEventListener("input",(event)=>{if(event.target.name==="amount"&&document.querySelector("[data-boost-total]")){const item=mission(event.target.closest("form").dataset.id);document.querySelector("[data-boost-total]").textContent=money(pool(item)+Number(event.target.value||0));}if(event.target.id==="agent-search"){agentQuery=event.target.value;renderAgents();document.querySelector("#agent-search")?.focus();}});
-document.addEventListener("submit",(event)=>{
+document.addEventListener("submit", async (event)=>{
   event.preventDefault(); const form=event.target; const fd=new FormData(form);
   // TODO: Escrow and settle reward boosts onchain after wallet signing is available.
-  if(form.id==="boost-form"){const id=form.dataset.id;state.boosts[id]=Number(state.boosts[id]||0)+Number(fd.get("amount"));save();closeModal();render();showToast("REWARD POOL BOOSTED // ONCHAIN INTEGRATION PENDING");}
-  // TODO: Send proof to the mission verifier and settlement pipeline.
-  if(form.id==="submit-form"){const id=form.dataset.id;state.submitted.push(id);mission(id).submissions+=1;state.submissions.unshift({missionId:id,title:fd.get("title"),description:fd.get("description"),proof:fd.get("proof"),x:fd.get("x"),media:fd.get("media"),created:"JUST NOW"});save();closeModal();render();showToast("ATTEMPT SUBMITTED // PROOF ADDED TO MISSION FEED");}
-  if(form.id==="edit-form"){state.username=fd.get("username").toUpperCase();save();closeModal();render();showToast("PROFILE UPDATED");}
+  if(form.id==="boost-form"){try{const id=form.dataset.id;await api(`/missions/${id}/boost`,{method:"POST",body:JSON.stringify({wallet:state.wallet,amount:Number(fd.get("amount"))})});state.boosts[id]=Number(state.boosts[id]||0)+Number(fd.get("amount"));save();closeModal();await refreshRemoteData();showToast("REWARD POOL BOOSTED // ONCHAIN SETTLEMENT HOOK PENDING");}catch(error){showToast(error.message);}}
+  // TODO: Route accepted proof into the verifier, moderation queue, and reward settlement pipeline.
+  if(form.id==="submit-form"){try{const id=form.dataset.id;await api(`/missions/${id}/submissions`,{method:"POST",body:JSON.stringify({wallet:state.wallet,title:fd.get("title"),description:fd.get("description"),proofUrl:fd.get("proof"),xPostUrl:fd.get("x"),mediaUrl:fd.get("media")})});state.submitted.push(id);save();closeModal();delete liveData.submissions[id];await refreshRemoteData();showToast("ATTEMPT SUBMITTED // X AUTHOR VERIFIED");}catch(error){showToast(error.message);}}
+  if(form.id==="edit-form"){try{const username=fd.get("username").toUpperCase();const payload=await api("/users/me",{method:"PATCH",body:JSON.stringify({wallet:state.wallet,username})});state.user=payload.user;state.username=username;save();closeModal();render();showToast("PROFILE UPDATED");}catch(error){showToast(error.message);}}
   // TODO: Let Claw agents deploy missions and create the matching reward escrow.
-  if(form.id==="create-form"){const id=fd.get("title").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/(^-|-$)/g,"");state.customMissions.unshift({id,title:fd.get("title").toUpperCase(),category:fd.get("category"),agentId:fd.get("agentId"),reward:Number(fd.get("reward")),deadline:new Date(fd.get("deadline")).toISOString(),participants:0,submissions:0,description:fd.get("description"),rules:fd.get("rules").split("\n").filter(Boolean),proof:fd.get("proof")});save();showToast("MISSION DEPLOYED // CLAW AND ESCROW INTEGRATION PENDING");navigate("/missions");}
+  if(form.id==="create-form"){try{await api("/missions",{method:"POST",body:JSON.stringify({wallet:state.wallet,title:fd.get("title").toUpperCase(),category:fd.get("category"),agentId:fd.get("agentId"),reward:Number(fd.get("reward")),deadline:new Date(fd.get("deadline")).toISOString(),description:fd.get("description"),rules:fd.get("rules").split("\n").filter(Boolean),proof:fd.get("proof")})});await refreshRemoteData();showToast("MISSION DEPLOYED // CLAW AND ESCROW INTEGRATION PENDING");navigate("/missions");}catch(error){showToast(error.message);}}
 });
 if (recoveredRoute && !isFile) history.replaceState({}, "", `${base}${recoveredRoute}`);
+if (new URLSearchParams(location.search).get("x_verified")) showToast("X ACCOUNT VERIFIED");
+if (new URLSearchParams(location.search).get("x_error")) showToast("X VERIFICATION FAILED");
 window.addEventListener("popstate",render); window.addEventListener("hashchange",render);
 setInterval(()=>document.querySelectorAll("[data-countdown]").forEach((node)=>{const item=mission(node.dataset.countdown);node.textContent=countdown(item);}),1000);
 render();
+refreshRemoteData();

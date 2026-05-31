@@ -219,7 +219,18 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
 .profile-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; padding-top: 42px; }
 .profile-stats div { padding: 18px; border: 1px solid rgba(232,225,213,.12); background: var(--panel); }
 .profile-stats b { font-size: 28px; }
+.profile-card-wrap { padding-top: 42px; }
+.user-profile-card { display: grid; grid-template-columns: 132px 1fr; gap: 24px; align-items: center; }
+.profile-avatar { display: grid; place-items: center; width: 116px; height: 116px; border: 1px solid var(--red); object-fit: cover; color: var(--cream); background: linear-gradient(135deg, hsl(var(--avatar-hue, 8) 76% 28%), #0b0c0c); box-shadow: 0 0 28px rgba(239,70,61,.18); font-family: var(--display); font-size: 52px; clip-path: polygon(0 0, 84% 0, 100% 16%, 100% 100%, 16% 100%, 0 84%); }
+.profile-avatar.small { width: 58px; height: 58px; font-size: 25px; }
+.profile-line { margin: 9px 0; color: var(--muted); font-size: 10px; letter-spacing: 1px; overflow-wrap: anywhere; }
+.profile-line b { color: var(--cream); font-weight: 600; }
+.verified-badge { display: inline-flex; margin-left: 8px; padding: 3px 6px; border: 1px solid var(--line); color: var(--red); font-size: 8px; letter-spacing: 1px; }
+.full-width { width: 100%; }
 .profile-actions { padding-top: 16px; padding-bottom: 12px; }
+.admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding-top: 42px; padding-bottom: 80px; }
+.admin-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(232,225,213,.1); color: var(--muted); font-size: 10px; }
+.admin-row b { color: var(--cream); }
 .form-shell { max-width: 900px; padding-top: 42px; padding-bottom: 80px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .full-field { grid-column: 1 / -1; }
@@ -246,6 +257,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
   .league-inner, .transmissions, .detail-layout { grid-template-columns: 1fr; }
   .agent-grid { grid-template-columns: repeat(2, 1fr); }
   .profile-stats { grid-template-columns: repeat(2,1fr); }
+  .admin-grid { grid-template-columns: 1fr; }
   footer { flex-wrap: wrap; }
 }
 @media (max-width: 560px) {
@@ -310,6 +322,11 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
   .agent-profile-bio { margin-top: 8px; font-size: 10px; line-height: 1.55; }
   .agent-profile-card .agent-stats { grid-template-columns: 1fr 1fr; gap: 14px 18px; margin: 22px 0 0; }
   .agent-profile-card .agent-stats b { font-size: 18px; }
+  .user-profile-card { grid-template-columns: 1fr; gap: 16px; text-align: center; justify-items: center; }
+  .profile-avatar { width: 94px; height: 94px; font-size: 42px; }
+  .profile-line { text-align: center; }
+  .user-profile-card .action-row { justify-content: center; }
+  .admin-row { grid-template-columns: 1fr; }
   footer {
     display: grid;
     grid-template-columns: 1fr;

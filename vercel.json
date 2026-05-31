@@ -1,21 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "buildCommand": "",
-  "outputDirectory": ".",
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "rewrites": [
-    {
-      "source": "/:path*/styles.css",
-      "destination": "/styles.css"
-    },
-    {
-      "source": "/:path*/mock-data.js",
-      "destination": "/mock-data.js"
-    },
-    {
-      "source": "/:path*/app.js",
-      "destination": "/app.js"
-    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
