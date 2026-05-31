@@ -209,6 +209,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
 .search-label { display: block; max-width: 440px; margin-bottom: 24px; }
 .large .agent-avatar { width: 82px; height: 82px; font-size: 42px; }
 .wide { grid-template-columns: repeat(4,1fr); }
+.agent-profile-strip { padding-top: 64px; padding-bottom: 32px; border-bottom: 1px solid rgba(239,70,61,.18); background: radial-gradient(circle at 22% 20%, rgba(145,30,24,.14), transparent 30rem); }
+.agent-profile-card { max-width: 980px; }
+.agent-profile-bio { max-width: 520px; margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
 .profile-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; padding-top: 42px; }
 .profile-stats div { padding: 18px; border: 1px solid rgba(232,225,213,.12); background: var(--panel); }
 .profile-stats b { font-size: 28px; }
@@ -248,13 +251,20 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
   .brand-mark { width: 21px; height: 21px; font-size: 10px; }
   .wallet-button { padding: 9px 10px; }
   .wallet-dot { width: 6px; height: 6px; }
-  .hero { min-height: 560px; padding-top: 36px; padding-bottom: 28px; }
-  h1 { font-size: 28vw; }
-  .hero-tagline { font-size: 10px; letter-spacing: 3px; line-height: 1.8; }
-  .hero-copy { font-size: 11px; line-height: 1.6; }
-  .hero-stats { width: 100%; display: grid; grid-template-columns: 1fr; margin: 14px 0 26px; }
-  .hero-stats small { font-size: 8px; }
+  .hero { min-height: calc(100svh - 62px); max-height: 640px; padding-top: 28px; padding-bottom: 24px; justify-content: center; }
+  .hero::before { width: 92vw; height: 80px; top: 31%; }
+  .hero h1 { width: 100%; font-size: clamp(64px, 23vw, 92px); line-height: .78; letter-spacing: -1px; }
+  .hero h1 .outline { -webkit-text-stroke: 1.2px var(--cream); transform: scaleX(.74); transform-origin: center; }
+  .hero .eyebrow { margin-bottom: 10px; font-size: 8px; letter-spacing: 2px; }
+  .hero-tagline { margin: 16px 0 8px; font-size: 9px; letter-spacing: 2.6px; line-height: 1.65; }
+  .hero-copy { max-width: 320px; margin-bottom: 0; font-size: 10px; line-height: 1.55; }
+  .hero-stats { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 9px 12px; margin: 15px 0 20px; justify-items: stretch; }
+  .hero-stats div { min-width: 0; padding: 10px 8px; }
+  .hero-stats div:nth-child(3) { grid-column: 1 / -1; justify-self: center; width: 48%; min-width: 178px; }
+  .hero-stats small { font-size: 7px; letter-spacing: 1px; }
+  .hero-stats strong { margin-left: 5px; font-size: 12px; }
   .hero-actions { width: 100%; flex-direction: column; gap: 8px; }
+  .hero-actions .button { min-height: 48px; }
   .mission-grid, .agent-grid { grid-template-columns: 1fr; }
   .mission-card, .mission-card.featured { grid-column: auto; min-height: auto; padding: 18px; }
   .mission-card.featured h3, .mission-card h3 { min-height: auto; margin-top: 17px; font-size: 29px; line-height: 1.06; }
@@ -285,5 +295,14 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
   .detail-pool, .form-grid, .boost-total { grid-template-columns: 1fr; }
   .full-field { grid-column: auto; }
   .wide { grid-template-columns: repeat(2,1fr); }
+  .agent-profile-strip { padding-top: 34px; padding-bottom: 22px; }
+  .agent-profile-card { padding: 20px; }
+  .agent-profile-card .agent-head.large { align-items: center; gap: 14px; }
+  .agent-profile-card .large .agent-avatar { width: 78px; height: 78px; font-size: 38px; }
+  .agent-profile-card h2 { font-size: clamp(44px, 14vw, 64px); }
+  .agent-profile-card .handle { font-size: 16px; }
+  .agent-profile-bio { margin-top: 8px; font-size: 10px; line-height: 1.55; }
+  .agent-profile-card .agent-stats { grid-template-columns: 1fr 1fr; gap: 14px 18px; margin: 22px 0 0; }
+  .agent-profile-card .agent-stats b { font-size: 18px; }
   footer { padding: 20px 16px; }
 }
