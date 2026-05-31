@@ -1,0 +1,33 @@
+DO $$ BEGIN
+  CREATE TYPE "AgentStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE "AgentSource" AS ENUM ('LAZY', 'CLAWPUMP', 'EXTERNAL');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE "MissionCreatedByType" AS ENUM ('ADMIN', 'AGENT_OWNER', 'AGENT_API', 'LAZARUS');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
+
+ALTER TABLE "agents" ADD COLUMN IF NOT EXISTS "status" "AgentStatus" NOT NULL DEFAULT 'APPROVED';
+ALTER TABLE "agents" ADD COLUMN IF NOT EXISTS "source" "AgentSource" NOT NULL DEFAULT 'EXTERNAL';
+ALTER TABLE "agents" ADD COLUMN IF NOT EXISTS "externalAgentId" TEXT;
+ALTER TABLE "agents" ADD COLUMN IF NOT EXISTS "website" TEXT;
+ALTER TABLE "agents" ADD COLUMN IF NOT EXISTS "xHandle" TEXT;
+ALTER TABLE "agents" ADD COLUMN IF NOT EXISTS "apiKeyHash" TEXT;
+ALTER TABLE "agents" ADD COLUMN IF NOT EXISTS "apiKeyCreatedAt" TIMESTAMP(3);
+ALTER TABLE "agents" ADD COLUMN IF NOT EXISTS "apiKeyLastUsedAt" TIMESTAMP(3);
+
+UPDATE "agents"
+SET "status" = CASE WHEN "approved" = true THEN 'APPROVED'::"AgentStatus" ELSE 'PENDING'::"AgentStatus" END
+WHERE "status" IS NULL;
+
+ALTER TABLE "missions" ADD COLUMN IF NOT EXISTS "createdByType" "MissionCreatedByType" NOT NULL DEFAULT 'ADMIN';
+ALTER TABLE "missions" ADD COLUMN IF NOT EXISTS "createdByWallet" TEXT;

@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
-import { ensureRules, slugify } from "../lib/constants.js";
+import { ensureRules, MISSION_CATEGORIES, slugify } from "../lib/constants.js";
 import { serializeMission, serializeSubmission } from "../lib/serializers.js";
 import { rewardWallet, verifyFundingTx } from "../lib/solana.js";
+import { validateSafeMission } from "../lib/safety.js";
 import { extractPostId, fetchPostAuthor } from "../lib/x.js";
 import { isAdminWallet, requireUser } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/async-route.js";
@@ -38,21 +39,26 @@ missionsRouter.post("/", asyncRoute(async (req, res) => {
   const agent = await prisma.agent.findUniqueOrThrow({ where: { slug: req.body.agentId } });
   if (!agent.ownerWallet && !isAdminWallet(wallet)) return res.status(403).json({ error: "This agent does not have an owner wallet. Register or claim an agent before creating missions." });
   if (agent.ownerWallet && agent.ownerWallet !== wallet && !isAdminWallet(wallet)) return res.status(403).json({ error: "Only the agent owner can create missions for this agent." });
-  if (!agent.approved && !isAdminWallet(wallet)) return res.status(403).json({ error: "This agent must be approved before it can create missions." });
+  if ((!agent.approved || agent.status !== "APPROVED") && !isAdminWallet(wallet)) return res.status(403).json({ error: "This agent must be approved before it can create missions." });
 
   const prizePoolAmountSol = Number(req.body.prizePoolAmountSol ?? req.body.amountSol ?? req.body.reward);
   if (!Number.isFinite(prizePoolAmountSol) || prizePoolAmountSol <= 0) return res.status(400).json({ error: "Mission prize pool must be funded with SOL." });
 
   const fundingTxHash = String(req.body.fundingTxHash || req.body.txHash || "");
   const verified = await verifyFundingTx({ txHash: fundingTxHash, fromWallet: wallet, amountSol: prizePoolAmountSol });
+  const rules = ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules || "").split("\n").filter(Boolean));
+  const category = MISSION_CATEGORIES.includes(String(req.body.category)) ? String(req.body.category) : agent.category;
+  validateSafeMission({ title: String(req.body.title), description: String(req.body.description), rules, proof: String(req.body.proof) });
   const mission = await prisma.$transaction(async (tx) => {
     const created = await tx.mission.create({
       data: {
         slug: req.body.slug || slugify(String(req.body.title)),
         title: String(req.body.title),
-        category: String(req.body.category),
+        category,
         agentId: agent.id,
         createdById: user.id,
+        createdByType: isAdminWallet(wallet) ? "ADMIN" : "AGENT_OWNER",
+        createdByWallet: wallet,
         rewardPool: prizePoolAmountSol,
         prizePoolAmountSol,
         fundingTxHash,
@@ -61,7 +67,7 @@ missionsRouter.post("/", asyncRoute(async (req, res) => {
         fundingStatus: "CONFIRMED",
         deadline: new Date(req.body.deadline),
         description: String(req.body.description),
-        rules: ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules || "").split("\n").filter(Boolean)),
+        rules,
         proof: String(req.body.proof),
       },
       include: { agent: true, _count: { select: { joins: true, submissions: true } } },

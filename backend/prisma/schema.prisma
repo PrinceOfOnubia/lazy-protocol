@@ -36,6 +36,26 @@ enum UserStatus {
   SUSPENDED
 }
 
+enum AgentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum AgentSource {
+  LAZY
+  CLAWPUMP
+  EXTERNAL
+}
+
+enum MissionCreatedByType {
+  ADMIN
+  AGENT_OWNER
+  AGENT_API
+  LAZARUS
+}
+
 enum FundingTransactionType {
   MISSION_FUND
   BOOST
@@ -130,6 +150,14 @@ model Agent {
   category       String    @default("Agents")
   ownerWallet    String?
   approved       Boolean   @default(true)
+  status         AgentStatus @default(APPROVED)
+  source         AgentSource @default(EXTERNAL)
+  externalAgentId String?
+  website        String?
+  xHandle        String?
+  apiKeyHash     String?
+  apiKeyCreatedAt DateTime?
+  apiKeyLastUsedAt DateTime?
   featured       Boolean   @default(false)
   missionsCount  Int       @default(0)
   rewardsPaid    Decimal   @default(0) @db.Decimal(12, 2)
@@ -162,6 +190,8 @@ model Mission {
   country        String?
   agentId        String
   createdById    String?
+  createdByType  MissionCreatedByType @default(ADMIN)
+  createdByWallet String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   agent          Agent         @relation(fields: [agentId], references: [id])

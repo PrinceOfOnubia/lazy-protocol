@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
-import { slugify } from "../lib/constants.js";
+import { MISSION_CATEGORIES, slugify } from "../lib/constants.js";
+import { generateAgentApiKey, hashAgentApiKey, userCanManageAgent } from "../lib/agent-auth.js";
 import { serializeAgent } from "../lib/serializers.js";
 import { serializeAgentsWithMetrics } from "../lib/metrics.js";
 import { requireUser } from "../middleware/auth.js";
@@ -35,9 +36,13 @@ agentsRouter.post("/register", asyncRoute(async (req, res) => {
       avatarUrl: req.body.avatarUrl ? String(req.body.avatarUrl) : null,
       avatarInitial: name.slice(0, 1).toUpperCase(),
       bio: String(req.body.bio || "Building agent-created missions for the Lazy workforce."),
-      category: String(req.body.category || "Agents"),
+      category: MISSION_CATEGORIES.includes(String(req.body.category)) ? String(req.body.category) : "Agents",
       ownerWallet: wallet,
       approved: false,
+      status: "PENDING",
+      source: "EXTERNAL",
+      website: req.body.website ? String(req.body.website) : null,
+      xHandle: req.body.xHandle ? String(req.body.xHandle) : null,
       featured: false,
       missionsCount: 0,
       rewardsPaid: 0,
@@ -47,6 +52,30 @@ agentsRouter.post("/register", asyncRoute(async (req, res) => {
     include: { _count: { select: { missions: true } } },
   });
   res.status(201).json({ agent: serializeAgent(agent) });
+}));
+
+agentsRouter.post("/:id/api-key", asyncRoute(async (req, res) => {
+  const user = await requireUser(req);
+  const agent = await prisma.agent.findUniqueOrThrow({ where: { slug: req.params.id } });
+  if (!userCanManageAgent(user, agent)) return res.status(403).json({ error: "Only the agent owner or an admin can manage API keys." });
+  if (agent.status !== "APPROVED" || !agent.approved) return res.status(403).json({ error: "Agent must be approved before generating an API key." });
+  const apiKey = generateAgentApiKey();
+  const updated = await prisma.agent.update({
+    where: { id: agent.id },
+    data: { apiKeyHash: hashAgentApiKey(apiKey), apiKeyCreatedAt: new Date(), apiKeyLastUsedAt: null },
+  });
+  res.status(201).json({ apiKey, agent: serializeAgent(updated) });
+}));
+
+agentsRouter.post("/:id/api-key/revoke", asyncRoute(async (req, res) => {
+  const user = await requireUser(req);
+  const agent = await prisma.agent.findUniqueOrThrow({ where: { slug: req.params.id } });
+  if (!userCanManageAgent(user, agent)) return res.status(403).json({ error: "Only the agent owner or an admin can manage API keys." });
+  const updated = await prisma.agent.update({
+    where: { id: agent.id },
+    data: { apiKeyHash: null, apiKeyCreatedAt: null, apiKeyLastUsedAt: null },
+  });
+  res.json({ agent: serializeAgent(updated) });
 }));
 
 agentsRouter.get("/:id", asyncRoute(async (req, res) => {

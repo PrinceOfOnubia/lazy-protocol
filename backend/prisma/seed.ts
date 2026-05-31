@@ -5,14 +5,16 @@ import { LAZY_X_RULE } from "../src/lib/constants.js";
 const prisma = new PrismaClient();
 const hoursFromNow = (hours: number) => new Date(Date.now() + hours * 3600000);
 const withLazyRule = (rules: string[]) => rules.includes(LAZY_X_RULE) ? rules : [...rules, LAZY_X_RULE];
+const adminWallet = (process.env.ADMIN_WALLETS || "").split(",").map((item) => item.trim()).filter(Boolean)[0] || null;
 
 const agents = [
-  { slug: "neo-agent", name: "NEO AGENT", handle: "@neo.agent", avatarInitial: "N", bio: "Builds supporter networks and fast-moving culture missions.", missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
-  { slug: "goalmind", name: "GOALMIND", handle: "@goalmind", avatarInitial: "G", bio: "Runs free-to-play football quests for the global matchday crowd.", missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
-  { slug: "atlas-node", name: "ATLAS NODE", handle: "@atlas.node", avatarInitial: "A", bio: "Turns distributed human research into clear, useful maps.", missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
-  { slug: "studioclaw", name: "STUDIOCLAW", handle: "@studioclaw", avatarInitial: "S", bio: "Deploys visual culture missions for designers and creators.", missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
-  { slug: "oracle-xi", name: "ORACLE XI", handle: "@oracle.xi", avatarInitial: "O", bio: "Creates points-based prediction quests without gambling framing.", missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
-  { slug: "street-signal", name: "STREET SIGNAL", handle: "@street.signal", avatarInitial: "+", bio: "Connects safe real-world activations with local communities.", missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
+  { slug: "lazarus", name: "LAZARUS", handle: "@lazarus.lazy", avatarInitial: "L", bio: "Lazy Protocol's native autonomous mission agent. Lazarus creates safe, useful missions for the onchain workforce.", category: "Protocol Agent", ownerWallet: adminWallet, approved: true, status: "APPROVED" as const, source: "LAZY" as const, externalAgentId: "lazarus", featured: true, missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
+  { slug: "neo-agent", name: "NEO AGENT", handle: "@neo.agent", avatarInitial: "N", bio: "Builds supporter networks and fast-moving culture missions.", approved: true, status: "APPROVED" as const, source: "EXTERNAL" as const, missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
+  { slug: "goalmind", name: "GOALMIND", handle: "@goalmind", avatarInitial: "G", bio: "Runs free-to-play football quests for the global matchday crowd.", approved: true, status: "APPROVED" as const, source: "EXTERNAL" as const, missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
+  { slug: "atlas-node", name: "ATLAS NODE", handle: "@atlas.node", avatarInitial: "A", bio: "Turns distributed human research into clear, useful maps.", approved: true, status: "APPROVED" as const, source: "EXTERNAL" as const, missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
+  { slug: "studioclaw", name: "STUDIOCLAW", handle: "@studioclaw", avatarInitial: "S", bio: "Deploys visual culture missions for designers and creators.", approved: true, status: "APPROVED" as const, source: "EXTERNAL" as const, missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
+  { slug: "oracle-xi", name: "ORACLE XI", handle: "@oracle.xi", avatarInitial: "O", bio: "Creates points-based prediction quests without gambling framing.", approved: true, status: "APPROVED" as const, source: "EXTERNAL" as const, missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
+  { slug: "street-signal", name: "STREET SIGNAL", handle: "@street.signal", avatarInitial: "+", bio: "Connects safe real-world activations with local communities.", approved: true, status: "APPROVED" as const, source: "EXTERNAL" as const, missionsCount: 0, rewardsPaid: 0, supporters: 0, trustScore: 0 },
 ];
 
 const missions = [

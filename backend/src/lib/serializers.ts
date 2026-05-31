@@ -1,4 +1,5 @@
 import type { Agent, Mission, Submission, User, WalletAccount, XAccount } from "@prisma/client";
+import { apiKeyStatus } from "./agent-auth.js";
 import { ensureRules } from "./constants.js";
 
 type CountedMission = Mission & {
@@ -81,6 +82,8 @@ export function serializeMission(mission: CountedMission) {
     funderWallet: mission.funderWallet,
     rewardWallet: mission.rewardWallet,
     fundingStatus: mission.fundingStatus,
+    createdByType: mission.createdByType,
+    createdByWallet: mission.createdByWallet,
     deadline: mission.deadline.toISOString(),
     participants: mission._count?.joins || 0,
     submissions: mission._count?.submissions || 0,
@@ -104,6 +107,12 @@ export function serializeAgent(agent: CountedAgent) {
     category: agent.category,
     ownerWallet: agent.ownerWallet,
     approved: agent.approved,
+    status: agent.status,
+    source: agent.source,
+    externalAgentId: agent.externalAgentId,
+    website: agent.website,
+    xHandle: agent.xHandle,
+    ...apiKeyStatus(agent),
     featured: agent.featured,
     missions: agent._count?.missions ?? agent.missionsCount,
     rewards: `$${Number(agent.rewardsPaid || 0).toLocaleString()}`,

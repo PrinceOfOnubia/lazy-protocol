@@ -1,12 +1,15 @@
 import { Router } from "express";
 import type { Request } from "express";
-import type { MissionStatus, SubmissionStatus } from "@prisma/client";
+import type { AgentStatus, MissionStatus, SubmissionStatus } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { ensureRules, MISSION_CATEGORIES, slugify } from "../lib/constants.js";
 import { serializeAgentsWithMetrics, userRewardsEarned } from "../lib/metrics.js";
 import { serializeAgent, serializeMission, publicUser, serializeSubmission } from "../lib/serializers.js";
+import { validateSafeMission } from "../lib/safety.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/async-route.js";
+import { clawPumpStatus, testClawPumpConnection } from "../services/clawpump.js";
+import { createLazarusMission, lazarusMissionTemplates } from "../services/lazarus.js";
 
 export const adminRouter = Router();
 
@@ -30,6 +33,7 @@ adminRouter.get("/overview", asyncRoute(async (req, res) => {
     submissions: submissions.map(serializeSubmission),
     boosts,
     agents: agentRows,
+    integrations: { clawpump: clawPumpStatus(), lazarusTemplates: lazarusMissionTemplates() },
     actions,
     fundingTransactions: fundingTransactions.map((tx) => ({
       id: tx.id,
@@ -108,6 +112,8 @@ adminRouter.post("/missions", asyncRoute(async (req, res) => {
   const admin = await requireAdmin(req);
   const agent = await prisma.agent.findUniqueOrThrow({ where: { slug: req.body.agentId } });
   const category = MISSION_CATEGORIES.includes(String(req.body.category)) ? String(req.body.category) : "Community";
+  const rules = ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules || "").split("\n").filter(Boolean));
+  validateSafeMission({ title: String(req.body.title), description: String(req.body.description), rules, proof: String(req.body.proof) });
   const mission = await prisma.mission.create({
     data: {
       slug: req.body.slug || slugify(String(req.body.title)),
@@ -115,10 +121,12 @@ adminRouter.post("/missions", asyncRoute(async (req, res) => {
       category,
       agentId: agent.id,
       createdById: admin.id,
+      createdByType: "ADMIN",
+      createdByWallet: admin.walletAccounts[0]?.address,
       rewardPool: Number(req.body.reward),
       deadline: new Date(req.body.deadline),
       description: String(req.body.description),
-      rules: ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules || "").split("\n").filter(Boolean)),
+      rules,
       proof: String(req.body.proof),
       featured: Boolean(req.body.featured),
     },
@@ -131,6 +139,10 @@ adminRouter.post("/missions", asyncRoute(async (req, res) => {
 adminRouter.patch("/missions/:id", asyncRoute(async (req, res) => {
   const admin = await requireAdmin(req);
   const rewardIncrement = Number(req.body.rewardBoost || 0);
+  const rules = req.body.rules ? ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules).split("\n").filter(Boolean)) : undefined;
+  if (req.body.title || req.body.description || rules) {
+    validateSafeMission({ title: String(req.body.title || ""), description: String(req.body.description || ""), rules: rules || [], proof: String(req.body.proof || "") });
+  }
   const mission = await prisma.mission.update({
     where: { slug: req.params.id },
     data: {
@@ -141,7 +153,7 @@ adminRouter.patch("/missions/:id", asyncRoute(async (req, res) => {
       featured: req.body.featured,
       deadline: req.body.deadline ? new Date(req.body.deadline) : undefined,
       rewardPool: rewardIncrement > 0 ? { increment: rewardIncrement } : undefined,
-      rules: req.body.rules ? ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules).split("\n").filter(Boolean)) : undefined,
+      rules,
     },
     include: { agent: true, _count: { select: { joins: true, submissions: true } } },
   });
@@ -151,6 +163,9 @@ adminRouter.patch("/missions/:id", asyncRoute(async (req, res) => {
 
 adminRouter.patch("/agents/:id", asyncRoute(async (req, res) => {
   const admin = await requireAdmin(req);
+  const requestedStatus = req.body.status ? String(req.body.status).toUpperCase() : undefined;
+  const validStatus = requestedStatus && ["PENDING", "APPROVED", "REJECTED", "SUSPENDED"].includes(requestedStatus) ? requestedStatus as AgentStatus : undefined;
+  const approved = validStatus ? validStatus === "APPROVED" : req.body.approved === undefined ? undefined : Boolean(req.body.approved);
   const agent = await prisma.agent.update({
     where: { slug: req.params.id },
     data: {
@@ -160,13 +175,51 @@ adminRouter.patch("/agents/:id", asyncRoute(async (req, res) => {
       bio: req.body.bio,
       category: req.body.category && MISSION_CATEGORIES.includes(String(req.body.category)) ? String(req.body.category) : undefined,
       ownerWallet: req.body.ownerWallet,
-      approved: req.body.approved === undefined ? undefined : Boolean(req.body.approved),
+      website: req.body.website,
+      xHandle: req.body.xHandle,
+      source: req.body.source,
+      externalAgentId: req.body.externalAgentId,
+      status: validStatus,
+      approved,
       featured: req.body.featured === undefined ? undefined : Boolean(req.body.featured),
     },
     include: { _count: { select: { missions: true } } },
   });
   await prisma.adminAction.create({ data: { adminUserId: admin.id, type: "AGENT_MANAGED", targetType: "agent", targetId: agent.id } });
   res.json({ agent: serializeAgent(agent) });
+}));
+
+adminRouter.post("/agents/:id/api-key/revoke", asyncRoute(async (req, res) => {
+  const admin = await requireAdmin(req);
+  const agent = await prisma.agent.update({
+    where: { slug: req.params.id },
+    data: { apiKeyHash: null, apiKeyCreatedAt: null, apiKeyLastUsedAt: null },
+    include: { _count: { select: { missions: true } } },
+  });
+  await prisma.adminAction.create({ data: { adminUserId: admin.id, type: "AGENT_MANAGED", targetType: "agent", targetId: agent.id, metadata: { apiKeyRevoked: true } } });
+  res.json({ agent: serializeAgent(agent) });
+}));
+
+adminRouter.get("/integrations/clawpump", asyncRoute(async (_req, res) => {
+  res.json({ clawpump: clawPumpStatus() });
+}));
+
+adminRouter.post("/integrations/clawpump/test", asyncRoute(async (req, res) => {
+  await requireAdmin(req);
+  res.json({ clawpump: await testClawPumpConnection() });
+}));
+
+adminRouter.post("/lazarus/create-mission", asyncRoute(async (req, res) => {
+  const admin = await requireAdmin(req);
+  const mission = await createLazarusMission({
+    type: req.body.type,
+    rewardPool: Number(req.body.rewardPool || req.body.reward || 100),
+    deadlineHours: Number(req.body.deadlineHours || 48),
+    featured: Boolean(req.body.featured),
+    adminUserId: admin.id,
+  });
+  await prisma.adminAction.create({ data: { adminUserId: admin.id, type: "MISSION_CREATED", targetType: "mission", targetId: mission.dbId || mission.id, metadata: { source: "LAZARUS" } } });
+  res.status(201).json({ mission });
 }));
 
 async function moderateSubmission(req: Request, status: SubmissionStatus, type: "SUBMISSION_APPROVED" | "SUBMISSION_REJECTED" | "WINNER_MARKED" | "SUBMISSION_DISQUALIFIED") {
