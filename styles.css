@@ -186,7 +186,6 @@ footer .brand { font-size: 17px; }
 footer .brand-mark { width: 19px; height: 19px; font-size: 9px; }
 .footer-links { display: flex; flex-wrap: wrap; gap: 16px; }
 .footer-links a:hover { color: var(--red); }
-.mobile-dev-cta { display: none; }
 .modal-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 20px; background: rgba(0,0,0,.82); backdrop-filter: blur(8px); }
 .modal-backdrop[hidden] { display: none; }
 .modal { width: min(480px, 100%); padding: 28px; border: 1px solid var(--red); background: #0d0e0e; position: relative; box-shadow: 0 0 80px rgba(145,30,24,.22); clip-path: polygon(0 0, 94% 0, 100% 8%, 100% 100%, 6% 100%, 0 92%); }
@@ -474,17 +473,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
     width: 100%;
     max-width: 320px;
   }
-  .mobile-dev-cta {
-    display: inline-flex;
-    justify-content: center;
-    width: min(100%, 320px);
-    padding: 13px 16px;
-    border: 1px solid var(--line);
-    color: var(--red);
-    background: rgba(145,30,24,.1);
-    font-weight: 700;
-    letter-spacing: 2px;
-  }
+  .footer-links a[href="/developers"] { grid-column: 2; }
   footer p { margin: 0; max-width: 260px; line-height: 1.7; }
   .mobile-bottom-nav {
     position: fixed;
