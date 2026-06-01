@@ -203,6 +203,21 @@ function transferCheckedInstruction(source, mint, destination, owner, rawAmount,
     data,
   });
 }
+async function findUsdcSourceAccount(owner, amount) {
+  const mint = new PublicKey(USDC_MINT);
+  const accounts = await solanaConnection.getParsedTokenAccountsByOwner(owner, { mint }, "confirmed");
+  if (!accounts.value.length) throw new Error(`Insufficient USDC balance. Need ${Number(amount).toLocaleString()} USDC.`);
+  let largest = 0n;
+  for (const account of accounts.value) {
+    const tokenAmount = account.account.data.parsed.info.tokenAmount;
+    const decimals = Number(tokenAmount.decimals ?? 6);
+    const requiredRaw = tokenAmountRaw(amount, decimals);
+    const balanceRaw = BigInt(tokenAmount.amount || "0");
+    if (balanceRaw > largest) largest = balanceRaw;
+    if (balanceRaw >= requiredRaw) return { source: account.pubkey, decimals, rawAmount: requiredRaw };
+  }
+  throw new Error(`Insufficient USDC balance. Need ${Number(amount).toLocaleString()} USDC.`);
+}
 async function sendUsdcPayment(amount, label="fund this action") {
   if (!state.wallet) throw new Error("Connect a Solana wallet first.");
   if (!REWARD_WALLET) throw new Error("Reward wallet is unavailable. Please try again later.");
@@ -210,16 +225,13 @@ async function sendUsdcPayment(amount, label="fund this action") {
   const fromPubkey = new PublicKey(state.wallet);
   const rewardPubkey = new PublicKey(REWARD_WALLET);
   const mint = new PublicKey(USDC_MINT);
-  const sourceAta = await associatedTokenAddress(mint, fromPubkey);
   const destinationAta = await associatedTokenAddress(mint, rewardPubkey);
-  const rawAmount = tokenAmountRaw(amount, 6);
-  if (rawAmount <= 0n) throw new Error("Enter a positive USDC amount.");
-  const sourceInfo = await solanaConnection.getParsedAccountInfo(sourceAta, "confirmed");
-  if (!sourceInfo.value) throw new Error(`No USDC token account found to ${label}.`);
+  if (Number(amount) <= 0) throw new Error("Enter a positive USDC amount.");
+  const sourceAccount = await findUsdcSourceAccount(fromPubkey, amount);
   const tx = new Transaction();
   const destinationInfo = await solanaConnection.getAccountInfo(destinationAta, "confirmed");
   if (!destinationInfo) tx.add(createAssociatedTokenAccountInstruction(fromPubkey, destinationAta, rewardPubkey, mint));
-  tx.add(transferCheckedInstruction(sourceAta, mint, destinationAta, fromPubkey, rawAmount, 6));
+  tx.add(transferCheckedInstruction(sourceAccount.source, mint, destinationAta, fromPubkey, sourceAccount.rawAmount, sourceAccount.decimals));
   const latest = await solanaConnection.getLatestBlockhash("confirmed");
   tx.feePayer = fromPubkey;
   tx.recentBlockhash = latest.blockhash;
