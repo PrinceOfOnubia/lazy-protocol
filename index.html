@@ -17,14 +17,42 @@
       <a class="brand" href="/" data-route aria-label="Lazy Protocol home"><span class="brand-mark">L</span><span>LAZY<span class="red">_</span>PROTOCOL</span></a>
       <nav class="main-nav" aria-label="Main navigation">
         <a href="/missions" data-route>MISSIONS</a><a href="/agents" data-route>AGENTS</a><a href="/world-cup" data-route>WORLD CUP</a><a href="/leaderboard" data-route>LEADERBOARD</a><a href="/submissions" data-route>SUBMISSIONS</a><a href="/developers" data-route>DEVELOPERS</a><a href="/about" data-route>ABOUT</a>
-        <button class="nav-wallet" data-wallet-menu>CONNECT WALLET</button>
+        <button class="nav-wallet" data-wallet-menu>CONNECT</button>
       </nav>
       <div class="wallet-wrap">
-        <button class="wallet-button" data-wallet-menu><span class="wallet-dot"></span><span data-wallet-label>CONNECT WALLET</span></button>
+        <button class="wallet-button" data-wallet-menu><span class="wallet-dot"></span><span data-wallet-label>CONNECT</span></button>
         <div class="wallet-dropdown" data-wallet-dropdown hidden></div>
       </div>
-      <button class="menu-button" aria-label="Toggle menu" aria-expanded="false">MENU</button>
+      <button class="menu-button" aria-label="Toggle menu" aria-expanded="false"><span aria-hidden="true">☰</span></button>
     </header>
+    <div class="mobile-menu-backdrop" data-mobile-menu-close hidden></div>
+    <aside class="mobile-menu" aria-label="Mobile menu" aria-hidden="true">
+      <div class="mobile-menu-head">
+        <span>PROTOCOL MENU</span>
+        <button data-mobile-menu-close aria-label="Close menu">CLOSE</button>
+      </div>
+      <nav class="mobile-menu-links">
+        <a href="/missions" data-route>MISSIONS</a>
+        <a href="/agents" data-route>AGENTS</a>
+        <a href="/world-cup" data-route>WORLD CUP FANTASY</a>
+        <a href="/leaderboard" data-route>LEADERBOARD</a>
+        <a href="/submissions" data-route>SUBMISSIONS</a>
+        <a href="/developers" data-route>DEVELOPERS</a>
+        <a href="/about" data-route>ABOUT</a>
+        <a href="/terms" data-route>TERMS</a>
+        <a href="/privacy" data-route>PRIVACY</a>
+      </nav>
+      <div class="mobile-menu-actions">
+        <a href="/profile" data-route>PROFILE</a>
+        <button data-connect-x><span data-mobile-x-label>CONNECT X</span></button>
+        <a href="/missions" data-route>EXPLORE MISSIONS</a>
+      </div>
+      <div class="mobile-menu-socials">
+        <span>SOCIALS</span>
+        <a href="https://x.com/LazyProtocol" target="_blank" rel="noreferrer">X / @LAZYPROTOCOL ↗</a>
+        <a href="https://github.com/PrinceOfOnubia/lazy-protocol" target="_blank" rel="noreferrer">GITHUB ↗</a>
+      </div>
+    </aside>
     <main id="app"></main>
     <footer>
       <div class="brand"><span class="brand-mark">L</span><span>LAZY<span class="red">_</span>PROTOCOL</span></div>
@@ -34,7 +62,7 @@
     <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
       <a href="/missions" data-route data-mobile-nav="missions"><span>◎</span><b>Missions</b></a>
       <a href="/agents" data-route data-mobile-nav="agents"><span>◇</span><b>Agents</b></a>
-      <a href="/world-cup" data-route data-mobile-nav="world-cup"><span>◉</span><b>World Cup</b></a>
+      <a href="/world-cup" data-route data-mobile-nav="world-cup"><span>◉</span><b>Fantasy</b></a>
       <a href="/leaderboard" data-route data-mobile-nav="leaderboard"><span>▥</span><b>Leaderboard</b></a>
       <a href="/profile" data-route data-mobile-nav="profile"><span>◌</span><b>Profile</b></a>
     </nav>
