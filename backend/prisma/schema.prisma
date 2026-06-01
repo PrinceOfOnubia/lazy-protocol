@@ -266,6 +266,7 @@ model RewardBoost {
   createdAt   DateTime @default(now())
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   mission     Mission  @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  fundingTransactions FundingTransaction[]
 
   @@map("reward_boosts")
 }
@@ -275,12 +276,17 @@ model FundingTransaction {
   txHash    String                 @unique
   type      FundingTransactionType
   missionId String?
+  boostId   String?
   fromWallet String
   toWallet  String
+  currency  RewardCurrency         @default(SOL)
+  amount    Decimal                @default(0) @db.Decimal(18, 9)
   amountSol Decimal                @db.Decimal(18, 9)
   status    FundingStatus          @default(CONFIRMED)
+  confirmedAt DateTime?
   createdAt DateTime               @default(now())
   mission   Mission?               @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  boost     RewardBoost?           @relation(fields: [boostId], references: [id], onDelete: Cascade)
 
   @@map("funding_transactions")
 }

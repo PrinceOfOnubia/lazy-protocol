@@ -36,8 +36,8 @@ for (const item of missions) {
   const agent = await prisma.agent.findUniqueOrThrow({ where: { slug: agentSlug } });
   await prisma.mission.upsert({
     where: { slug: mission.slug },
-    update: { ...mission, rewardCurrency: "USDC", rules: withLazyRule(mission.rules), agentId: agent.id },
-    create: { ...mission, rewardCurrency: "USDC", rules: withLazyRule(mission.rules), agentId: agent.id },
+    update: { ...mission, rewardCurrency: "USDC", fundingStatus: "PENDING", status: "UNDER_REVIEW", rules: withLazyRule(mission.rules), agentId: agent.id },
+    create: { ...mission, rewardCurrency: "USDC", fundingStatus: "PENDING", status: "UNDER_REVIEW", rules: withLazyRule(mission.rules), agentId: agent.id },
   });
 }
 

@@ -46,7 +46,7 @@ missionsRouter.post("/", asyncRoute(async (req, res) => {
   if (!Number.isFinite(rewardAmount) || rewardAmount <= 0) return res.status(400).json({ error: "Mission reward pool must be positive." });
 
   const fundingTxHash = String(req.body.fundingTxHash || req.body.txHash || "");
-  const verified = rewardCurrency === "SOL" ? await verifyFundingTx({ txHash: fundingTxHash, fromWallet: wallet, amountSol: rewardAmount }) : null;
+  const verified = await verifyFundingTx({ txHash: fundingTxHash, fromWallet: wallet, amount: rewardAmount, currency: rewardCurrency });
   const rules = ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules || "").split("\n").filter(Boolean));
   const category = MISSION_CATEGORIES.includes(String(req.body.category)) ? String(req.body.category) : agent.category;
   validateSafeMission({ title: String(req.body.title), description: String(req.body.description), rules, proof: String(req.body.proof) });
@@ -65,8 +65,8 @@ missionsRouter.post("/", asyncRoute(async (req, res) => {
         prizePoolAmountSol: rewardCurrency === "SOL" ? rewardAmount : null,
         fundingTxHash,
         funderWallet: wallet,
-        rewardWallet: verified?.toWallet,
-        fundingStatus: verified ? "CONFIRMED" : "PENDING",
+        rewardWallet: verified.toWallet,
+        fundingStatus: "CONFIRMED",
         deadline: new Date(req.body.deadline),
         description: String(req.body.description),
         rules,
@@ -74,11 +74,9 @@ missionsRouter.post("/", asyncRoute(async (req, res) => {
       },
       include: { agent: true, _count: { select: { joins: true, submissions: true } } },
     });
-    if (verified) {
-      await tx.fundingTransaction.create({
-        data: { txHash: fundingTxHash, type: "MISSION_FUND", missionId: created.id, fromWallet: wallet, toWallet: verified.toWallet, amountSol: rewardAmount, status: "CONFIRMED" },
-      });
-    }
+    await tx.fundingTransaction.create({
+      data: { txHash: fundingTxHash, type: "MISSION_FUND", missionId: created.id, fromWallet: wallet, toWallet: verified.toWallet, currency: rewardCurrency, amount: rewardAmount, amountSol: rewardCurrency === "SOL" ? rewardAmount : 0, status: "CONFIRMED", confirmedAt: new Date() },
+    });
     await tx.agent.update({
       where: { id: agent.id },
       data: { missionsCount: { increment: 1 } },
@@ -105,19 +103,17 @@ missionsRouter.post("/:id/boost", asyncRoute(async (req, res) => {
   if (!wallet) return res.status(401).json({ error: "Wallet is required." });
   const amount = Number(req.body.amount ?? req.body.amountSol);
   if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: "Boost amount must be positive." });
-  const boostTxHash = String(req.body.boostTxHash || req.body.txHash || "");
+  const boostTxHash = String(req.body.boostTxHash || req.body.txHash || req.body.fundingTxHash || "");
   const mission = await prisma.mission.findUniqueOrThrow({ where: { slug: req.params.id } });
   const currency = req.body.currency === "SOL" ? "SOL" : req.body.currency === "USDC" ? "USDC" : mission.rewardCurrency;
   if (currency !== mission.rewardCurrency) return res.status(400).json({ error: `Boost currency must match mission currency (${mission.rewardCurrency}).` });
-  const verified = boostTxHash && currency === "SOL" ? await verifyFundingTx({ txHash: boostTxHash, fromWallet: wallet, amountSol: amount }) : null;
+  const verified = await verifyFundingTx({ txHash: boostTxHash, fromWallet: wallet, amount, currency });
   const boost = await prisma.$transaction(async (tx) => {
-    if (verified) {
-      await tx.fundingTransaction.create({
-        data: { txHash: boostTxHash, type: "BOOST", missionId: mission.id, fromWallet: wallet, toWallet: verified.toWallet, amountSol: amount, status: "CONFIRMED" },
-      });
-    }
     const created = await tx.rewardBoost.create({
-      data: { userId: user.id, missionId: mission.id, amount, currency, amountSol: verified ? amount : null, txSignature: boostTxHash || null, boosterWallet: wallet, status: "CONFIRMED" },
+      data: { userId: user.id, missionId: mission.id, amount, currency, amountSol: currency === "SOL" ? amount : null, txSignature: boostTxHash, boosterWallet: wallet, status: "CONFIRMED" },
+    });
+    await tx.fundingTransaction.create({
+      data: { txHash: boostTxHash, type: "BOOST", missionId: mission.id, boostId: created.id, fromWallet: wallet, toWallet: verified.toWallet, currency, amount, amountSol: currency === "SOL" ? amount : 0, status: "CONFIRMED", confirmedAt: new Date() },
     });
     await tx.mission.update({ where: { id: mission.id }, data: { rewardPool: { increment: amount } } });
     return created;

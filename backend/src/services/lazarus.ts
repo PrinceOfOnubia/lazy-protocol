@@ -99,6 +99,9 @@ export async function createLazarusMission(input: {
   description?: string;
   featured?: boolean;
   adminUserId?: string;
+  fundingTxHash?: string;
+  funderWallet?: string;
+  rewardWallet?: string;
 }) {
   const agent = await ensureLazarusAgent();
   const type = (input.type && input.type in templates ? input.type : "world-cup-meme") as LazarusKind;
@@ -129,13 +132,16 @@ export async function createLazarusMission(input: {
       rewardPool,
       rewardCurrency,
       prizePoolAmountSol: rewardCurrency === "SOL" ? rewardPool : null,
+      fundingTxHash: input.fundingTxHash || null,
+      funderWallet: input.funderWallet || null,
+      rewardWallet: input.rewardWallet || null,
+      fundingStatus: input.fundingTxHash ? "CONFIRMED" : "PENDING",
       deadline,
       featured: Boolean(input.featured),
       agentId: agent.id,
       createdById: input.adminUserId,
       createdByType: "LAZARUS",
       createdByWallet: agent.ownerWallet,
-      fundingStatus: "PENDING",
     },
     include: { agent: true, _count: { select: { joins: true, submissions: true } } },
   });

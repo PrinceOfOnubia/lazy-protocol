@@ -6,6 +6,7 @@ import { ensureRules, MISSION_CATEGORIES, slugify } from "../lib/constants.js";
 import { serializeAgentsWithMetrics, userRewardsEarned } from "../lib/metrics.js";
 import { serializeAgent, serializeMission, publicUser, serializeSubmission } from "../lib/serializers.js";
 import { validateSafeMission } from "../lib/safety.js";
+import { verifyFundingTx } from "../lib/solana.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { asyncRoute } from "../middleware/async-route.js";
 import { clawPumpStatus, testClawPumpConnection } from "../services/clawpump.js";
@@ -43,8 +44,11 @@ adminRouter.get("/overview", asyncRoute(async (req, res) => {
       missionTitle: tx.mission?.title || "",
       fromWallet: tx.fromWallet,
       toWallet: tx.toWallet,
+      currency: tx.currency,
+      amount: Number(tx.amount || tx.amountSol || 0),
       amountSol: Number(tx.amountSol || 0),
       status: tx.status,
+      confirmedAt: tx.confirmedAt?.toISOString() || null,
       createdAt: tx.createdAt.toISOString(),
     })),
   });
@@ -103,7 +107,7 @@ adminRouter.get("/users/:id", asyncRoute(async (req, res) => {
     user: { ...publicUser(user), rewardsEarned: await userRewardsEarned(user.id) },
     joins: user.joins.map((join) => ({ id: join.id, missionId: join.mission.slug, missionTitle: join.mission.title, createdAt: join.createdAt.toISOString() })),
     submissions: user.submissions.map(serializeSubmission),
-    boosts: user.rewardBoosts.map((boost) => ({ id: boost.id, missionTitle: boost.mission.title, amount: Number(boost.amount), createdAt: boost.createdAt.toISOString() })),
+    boosts: user.rewardBoosts.map((boost) => ({ id: boost.id, missionTitle: boost.mission.title, amount: Number(boost.amount), currency: boost.currency, createdAt: boost.createdAt.toISOString() })),
     notes: user.adminNotes.map((note) => ({ id: note.id, note: note.note, createdAt: note.createdAt.toISOString() })),
   });
 }));
@@ -113,26 +117,41 @@ adminRouter.post("/missions", asyncRoute(async (req, res) => {
   const agent = await prisma.agent.findUniqueOrThrow({ where: { slug: req.body.agentId } });
   const category = MISSION_CATEGORIES.includes(String(req.body.category)) ? String(req.body.category) : "Community";
   const rules = ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules || "").split("\n").filter(Boolean));
+  const rewardCurrency = req.body.rewardCurrency === "SOL" ? "SOL" : "USDC";
+  const rewardAmount = Number(req.body.reward);
+  const fundingTxHash = String(req.body.fundingTxHash || req.body.txHash || "");
+  const adminWallet = admin.walletAccounts[0]?.address || "";
+  const verified = await verifyFundingTx({ txHash: fundingTxHash, fromWallet: adminWallet, amount: rewardAmount, currency: rewardCurrency });
   validateSafeMission({ title: String(req.body.title), description: String(req.body.description), rules, proof: String(req.body.proof) });
-  const mission = await prisma.mission.create({
-    data: {
-      slug: req.body.slug || slugify(String(req.body.title)),
-      title: String(req.body.title),
-      category,
-      agentId: agent.id,
-      createdById: admin.id,
-      createdByType: "ADMIN",
-      createdByWallet: admin.walletAccounts[0]?.address,
-      rewardPool: Number(req.body.reward),
-      rewardCurrency: req.body.rewardCurrency === "SOL" ? "SOL" : "USDC",
-      prizePoolAmountSol: req.body.rewardCurrency === "SOL" ? Number(req.body.reward) : undefined,
-      deadline: new Date(req.body.deadline),
-      description: String(req.body.description),
-      rules,
-      proof: String(req.body.proof),
-      featured: Boolean(req.body.featured),
-    },
-    include: { agent: true, _count: { select: { joins: true, submissions: true } } },
+  const mission = await prisma.$transaction(async (tx) => {
+    const created = await tx.mission.create({
+      data: {
+        slug: req.body.slug || slugify(String(req.body.title)),
+        title: String(req.body.title),
+        category,
+        agentId: agent.id,
+        createdById: admin.id,
+        createdByType: "ADMIN",
+        createdByWallet: adminWallet,
+        rewardPool: rewardAmount,
+        rewardCurrency,
+        prizePoolAmountSol: rewardCurrency === "SOL" ? rewardAmount : undefined,
+        fundingTxHash,
+        funderWallet: adminWallet,
+        rewardWallet: verified.toWallet,
+        fundingStatus: "CONFIRMED",
+        deadline: new Date(req.body.deadline),
+        description: String(req.body.description),
+        rules,
+        proof: String(req.body.proof),
+        featured: Boolean(req.body.featured),
+      },
+      include: { agent: true, _count: { select: { joins: true, submissions: true } } },
+    });
+    await tx.fundingTransaction.create({
+      data: { txHash: fundingTxHash, type: "MISSION_FUND", missionId: created.id, fromWallet: adminWallet, toWallet: verified.toWallet, currency: rewardCurrency, amount: rewardAmount, amountSol: rewardCurrency === "SOL" ? rewardAmount : 0, status: "CONFIRMED", confirmedAt: new Date() },
+    });
+    return created;
   });
   await prisma.adminAction.create({ data: { adminUserId: admin.id, type: "MISSION_CREATED", targetType: "mission", targetId: mission.id } });
   res.status(201).json({ mission: serializeMission(mission) });
@@ -141,6 +160,7 @@ adminRouter.post("/missions", asyncRoute(async (req, res) => {
 adminRouter.patch("/missions/:id", asyncRoute(async (req, res) => {
   const admin = await requireAdmin(req);
   const rewardIncrement = Number(req.body.rewardBoost || 0);
+  if (rewardIncrement > 0) return res.status(400).json({ error: "Reward boosts must be funded through /missions/:id/boost before the pool can increase." });
   const rewardCurrency = req.body.rewardCurrency === "SOL" ? "SOL" : req.body.rewardCurrency === "USDC" ? "USDC" : undefined;
   const rules = req.body.rules ? ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules).split("\n").filter(Boolean)) : undefined;
   if (req.body.title || req.body.description || rules) {
@@ -216,14 +236,25 @@ adminRouter.post("/integrations/clawpump/test", asyncRoute(async (req, res) => {
 
 adminRouter.post("/lazarus/create-mission", asyncRoute(async (req, res) => {
   const admin = await requireAdmin(req);
+  const adminWallet = admin.walletAccounts[0]?.address || "";
+  const rewardCurrency = req.body.rewardCurrency === "SOL" ? "SOL" : "USDC";
+  const rewardPool = Number(req.body.rewardPool || req.body.reward || 100);
+  const fundingTxHash = String(req.body.fundingTxHash || req.body.txHash || "");
+  const verified = await verifyFundingTx({ txHash: fundingTxHash, fromWallet: adminWallet, amount: rewardPool, currency: rewardCurrency });
   const mission = await createLazarusMission({
     type: req.body.type,
-    rewardPool: Number(req.body.rewardPool || req.body.reward || 100),
-    rewardCurrency: req.body.rewardCurrency === "SOL" ? "SOL" : "USDC",
+    rewardPool,
+    rewardCurrency,
     deadlineHours: Number(req.body.deadlineHours || 48),
     description: req.body.description,
     featured: Boolean(req.body.featured),
     adminUserId: admin.id,
+    fundingTxHash,
+    funderWallet: adminWallet,
+    rewardWallet: verified.toWallet,
+  });
+  await prisma.fundingTransaction.create({
+    data: { txHash: fundingTxHash, type: "MISSION_FUND", missionId: mission.dbId || mission.id, fromWallet: adminWallet, toWallet: verified.toWallet, currency: rewardCurrency, amount: rewardPool, amountSol: rewardCurrency === "SOL" ? rewardPool : 0, status: "CONFIRMED", confirmedAt: new Date() },
   });
   await prisma.adminAction.create({ data: { adminUserId: admin.id, type: "MISSION_CREATED", targetType: "mission", targetId: mission.dbId || mission.id, metadata: { source: "LAZARUS" } } });
   res.status(201).json({ mission });
