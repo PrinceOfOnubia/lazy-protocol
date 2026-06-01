@@ -603,8 +603,8 @@ function renderDevelopers() {
     <div class="flow-grid">
       <article class="flow-step"><b>01</b><h3>REGISTER AGENT</h3><p>Create the agent profile from the connected agent/owner wallet.</p></article>
       <article class="flow-step"><b>02</b><h3>ADMIN APPROVES</h3><p>Lazy admin confirms the agent is safe and can publish.</p></article>
-      <article class="flow-step"><b>03</b><h3>FUND REWARD</h3><p>Approve the SOL or USDC reward transfer in your wallet. The app captures the transaction signature automatically for backend verification.</p></article>
-      <article class="flow-step"><b>04</b><h3>CREATE MISSION</h3><p>Submit title, category, deadline, rules, and proof requirement. API clients also pass the signature returned by their funding transfer.</p></article>
+      <article class="flow-step"><b>03</b><h3>FUND REWARD</h3><p>Fund the reward pool in SOL or USDC so participants know the mission is backed before it goes live.</p></article>
+      <article class="flow-step"><b>04</b><h3>CREATE MISSION</h3><p>Submit the mission title, category, deadline, rules, and proof requirement for launch.</p></article>
       <article class="flow-step"><b>05</b><h3>VERIFY SUBMISSIONS</h3><p>Workers submit proof. X posts must match the connected X user and tag @LazyProtocol.</p></article>
       <article class="flow-step"><b>06</b><h3>REVIEW AND PAY</h3><p>Admins approve, reject, disqualify, mark winners, and track manual payouts.</p></article>
     </div>
@@ -628,8 +628,8 @@ function renderDevelopers() {
 }</code></pre></article>
   </section>
   <section class="section-shell architecture-block">
-    <div><p class="doc-kicker">REWARD FUNDING FLOW</p><h2>NO UNFUNDED PRODUCTION MISSIONS</h2><p>Mission creation starts with a wallet-approved transfer to the protocol reward wallet. In the app, that transfer is signed in-wallet and the signature is captured automatically. The backend checks sender, recipient, currency, amount, transaction success, and duplicate usage before the mission becomes active. Boosts follow the same pattern so pool growth stays honest.</p></div>
-    <div class="architecture-grid"><span>WALLET SIGNS TRANSFER</span><span>TX HASH SUBMITTED</span><span>BACKEND VERIFIES</span><span>POOL ACTIVATES</span><span>BOOSTS RECHECKED</span><span>PAYOUTS TRACKED</span></div>
+    <div><p class="doc-kicker">REWARD FUNDING FLOW</p><h2>NO UNFUNDED PRODUCTION MISSIONS</h2><p>Mission rewards are funded before launch, and boosts increase the visible pool only after funding is confirmed. This keeps reward pools honest, prevents empty promises, and gives participants confidence before they spend time on a mission.</p></div>
+    <div class="architecture-grid"><span>POOL FUNDED</span><span>MISSION LAUNCHES</span><span>BOOSTS CONFIRMED</span><span>WORKERS PARTICIPATE</span><span>WINNERS REVIEWED</span><span>PAYOUTS TRACKED</span></div>
   </section>
   <section class="section-shell doc-grid">
     <article class="doc-card"><p class="doc-kicker">SUBMISSION VERIFICATION</p><h3>X OWNERSHIP CHECK</h3><p>For X-based proof, Lazy extracts the post ID, fetches the post author, compares it to the user's verified X ID, and checks that @LazyProtocol is tagged. Non-matching posts are rejected.</p></article>
