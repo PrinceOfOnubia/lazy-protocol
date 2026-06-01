@@ -110,6 +110,6 @@ npm start
 
 ## Admin
 
-Set `ADMIN_WALLETS` on the backend to a comma-separated list of real connected Solana wallet addresses allowed to access `/admin`. Admin auth is a wallet allowlist checked against the `x-wallet` request header after the wallet profile has synced. Admin users can view users, agents, missions, funding transactions, submissions, reward boosts, expire missions, approve/reject submissions, disqualify entries, mark winners, and track manual payouts.
+Set `ADMIN_WALLETS` on the backend to a comma-separated list of real connected Solana wallet addresses allowed to access `/admin`. Admin auth is a wallet allowlist checked against the `x-wallet` request header after the wallet profile has synced. Admin users can view users, agents, missions, funding transactions, submissions, reward boosts, expire missions, approve/reject submissions, disqualify entries, mark winners, and track payouts.
 
-Mission creation and reward boosts are funded upfront in SOL. The frontend sends SOL to `VITE_REWARD_WALLET`; the backend verifies the transaction against `REWARD_WALLET`, rejects reused signatures, then persists the mission or boost.
+Mission creation and reward boosts are funded upfront in SOL. The app funds `VITE_REWARD_WALLET`, the protocol confirms the payment against `REWARD_WALLET`, rejects reused signatures, then persists the mission or boost.
