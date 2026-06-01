@@ -428,13 +428,14 @@ function rewardInput(name, currency="USDC", value="", attrs="") {
   return currency === "SOL" ? solField(name, value, attrs) : moneyField(name, value, attrs);
 }
 function deadlineFields(prefix="deadline", dateValue="", timeValue="", periodValue="PM") {
-  return `<div class="deadline-picker"><label>DATE<input required type="date" name="${prefix}Date" value="${dateValue}"></label><label>TIME<input required type="time" name="${prefix}Time" value="${timeValue}"></label><label>PERIOD<select name="${prefix}Period"><option ${periodValue==="AM"?"selected":""}>AM</option><option ${periodValue==="PM"?"selected":""}>PM</option></select></label></div>`;
+  return `<div class="deadline-picker"><label>DATE<input required type="date" name="${prefix}Date" value="${dateValue}"></label><label>TIME<input required type="text" inputmode="numeric" pattern="^(0?[1-9]|1[0-2]):[0-5][0-9]$" name="${prefix}Time" value="${timeValue}" placeholder="06:30"></label><label>PERIOD<select name="${prefix}Period"><option ${periodValue==="AM"?"selected":""}>AM</option><option ${periodValue==="PM"?"selected":""}>PM</option></select></label></div>`;
 }
 function deadlineIso(fd, prefix="deadline") {
   const date = fd.get(`${prefix}Date`);
-  const time = String(fd.get(`${prefix}Time`) || "12:00");
+  const time = String(fd.get(`${prefix}Time`) || "12:00").trim();
   const period = String(fd.get(`${prefix}Period`) || "PM");
   if (!date) throw new Error("Choose a deadline date.");
+  if (!/^(0?[1-9]|1[0-2]):[0-5][0-9]$/.test(time)) throw new Error("Enter deadline time like 06:30.");
   let [hours, minutes] = time.split(":").map(Number);
   if (period === "PM" && hours < 12) hours += 12;
   if (period === "AM" && hours === 12) hours = 0;
