@@ -107,6 +107,9 @@ h2 { margin-bottom: 0; font-family: var(--display); font-size: clamp(44px, 7vw, 
 .reward { width: fit-content; margin: 2px 0 14px; padding: 4px 9px 3px; color: #ff6a31; background: rgba(20,7,5,.82); box-shadow: 0 0 24px rgba(216,74,32,.22); font-family: var(--display); font-size: 38px; letter-spacing: 2px; line-height: 1; }
 .featured .reward { font-size: 46px; }
 .reward small { display: block; color: var(--muted); font-family: var(--mono); font-size: 8px; letter-spacing: 1px; }
+.amount-with-icon { display: inline-flex; align-items: center; gap: .28em; white-space: nowrap; }
+.currency-icon { width: 1em; height: 1em; flex: 0 0 auto; vertical-align: -.12em; filter: drop-shadow(0 0 8px rgba(239,70,61,.18)); }
+.reward .currency-icon, .hero-bounty .currency-icon, .detail-pool .currency-icon { width: .86em; height: .86em; }
 .status-badge { border: 1px solid var(--line); padding: 5px 7px; color: var(--red); background: rgba(145,30,24,.12); font-size: 8px; letter-spacing: 1px; text-transform: uppercase; }
 .status-ending-soon { color: var(--orange); border-color: rgba(216,120,62,.6); }
 .status-expired { color: #77716a; border-color: rgba(145,138,128,.3); background: rgba(145,138,128,.06); }
@@ -296,8 +299,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
 .boost-total span { padding: 12px; border: 1px solid rgba(232,225,213,.12); color: var(--muted); font-size: 9px; }
 .boost-total b { display: block; margin-top: 5px; color: var(--red); font-size: 18px; }
 .currency-input { position: relative; }
-.currency-input span { position: absolute; left: 13px; top: 50%; transform: translateY(-38%); color: var(--red); font-weight: 700; }
-.currency-input input { padding-left: 30px; }
+.currency-input span { position: absolute; left: 13px; top: 50%; transform: translateY(-43%); color: var(--red); font-weight: 700; }
+.currency-input span .currency-icon { width: 17px; height: 17px; }
+.currency-input input { padding-left: 42px; }
 .field-label { display: block; margin-bottom: 7px; color: var(--muted); font-size: 10px; letter-spacing: 1px; }
 .deadline-picker { display: grid; grid-template-columns: 1.2fr 1fr .75fr; gap: 10px; }
 .warning-copy { color: var(--orange) !important; }
