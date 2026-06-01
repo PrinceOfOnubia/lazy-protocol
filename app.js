@@ -889,6 +889,6 @@ if (new URLSearchParams(location.search).get("x_verified")) showToast("X ACCOUNT
 if (new URLSearchParams(location.search).get("x_error")) showToast("X VERIFICATION FAILED");
 window.addEventListener("popstate",render); window.addEventListener("hashchange",render);
 setInterval(()=>document.querySelectorAll("[data-countdown]").forEach((node)=>{const item=mission(node.dataset.countdown);node.textContent=countdown(item);}),1000);
-setInterval(()=>{ if(routePath()==="/" && document.querySelector("[data-hero]")) { heroSlide = (heroSlide + 1) % HERO_SLIDE_COUNT; renderHome(); } }, 5200);
+setInterval(()=>{ if(routePath()==="/" && document.querySelector("[data-hero]")) { heroSlide = (heroSlide + 1) % HERO_SLIDE_COUNT; renderHome(); } }, 9000);
 render();
 refreshRemoteData();
