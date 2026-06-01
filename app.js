@@ -37,6 +37,7 @@ let adminUserFilter = "all";
 let liveData = { missions:null, agents:null, boards:null, submissions:{}, globalSubmissions:null, admin:null };
 let touchStartX = 0;
 let profileSyncWarning = "";
+const HERO_SLIDE_COUNT = 3;
 
 const defaultState = { wallet:null, user:null, username:"HUMAN_001", avatarUrl:null, joined:[], submitted:[], boosts:{}, customMissions:[], submissions:[] };
 let state = { ...defaultState, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") };
@@ -766,7 +767,7 @@ document.addEventListener("touchend",(event)=>{
   if (!event.target.closest("[data-hero]") || !touchStartX) return;
   const delta = event.changedTouches[0].clientX - touchStartX;
   if (Math.abs(delta) > 45) {
-    heroSlide = delta < 0 ? Math.min(2, heroSlide + 1) : Math.max(0, heroSlide - 1);
+    heroSlide = delta < 0 ? (heroSlide + 1) % HERO_SLIDE_COUNT : (heroSlide - 1 + HERO_SLIDE_COUNT) % HERO_SLIDE_COUNT;
     renderHome();
   }
   touchStartX = 0;
@@ -794,5 +795,6 @@ if (new URLSearchParams(location.search).get("x_verified")) showToast("X ACCOUNT
 if (new URLSearchParams(location.search).get("x_error")) showToast("X VERIFICATION FAILED");
 window.addEventListener("popstate",render); window.addEventListener("hashchange",render);
 setInterval(()=>document.querySelectorAll("[data-countdown]").forEach((node)=>{const item=mission(node.dataset.countdown);node.textContent=countdown(item);}),1000);
+setInterval(()=>{ if(routePath()==="/" && document.querySelector("[data-hero]")) { heroSlide = (heroSlide + 1) % HERO_SLIDE_COUNT; renderHome(); } }, 5200);
 render();
 refreshRemoteData();
