@@ -447,7 +447,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
   .hero h1.hero-core-title { font-size: clamp(38px, 10.8vw, 54px); line-height: .95; letter-spacing: -.5px; }
   .hero h1 .outline { -webkit-text-stroke: 1.35px var(--cream); transform: scaleX(.76); transform-origin: center; }
   .hero h1.hero-title-alt { font-size: clamp(58px, 16vw, 86px); letter-spacing: -.5px; line-height: .9; }
-  .hero h1.hero-title-experiment { font-size: clamp(43px, 11.8vw, 60px); letter-spacing: -.4px; line-height: .86; }
+  .hero h1.hero-title-experiment { font-size: clamp(50px, 14vw, 76px); letter-spacing: -.4px; line-height: .88; }
   .hero h1.hero-title-agent { font-size: clamp(56px, 15vw, 80px); }
   .hero-title-alt span { -webkit-text-stroke: 1.2px var(--cream); }
   .hero .eyebrow { margin-bottom: 12px; font-size: 8.5px; letter-spacing: 2.2px; }
@@ -468,20 +468,14 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
   .hero-bounty strong { font-size: 52px; }
   .hero-bounty span { font-size: 19px; letter-spacing: 2px; }
   .hero-agent-card b { font-size: 44px; }
-  .hero-slide-experiment { justify-content: flex-start; padding-top: 76px; padding-bottom: 92px; }
+  .hero-slide-experiment { justify-content: flex-start; padding-top: 64px; padding-bottom: 92px; }
   .hero-slide-experiment .eyebrow { margin-bottom: 7px; }
-  .hero-slide-experiment .hero-copy.lead { margin-top: 10px; max-width: 320px; font-size: 9.7px; line-height: 1.42; }
-  .hero-slide-experiment .hero-secondary-line { margin-top: 10px; }
-  .hero-slide-experiment .hero-actions { margin-top: 10px; gap: 7px; }
-  .hero-slide-experiment .hero-actions .button { min-height: 40px; }
-  .hero-slide-experiment .hero-stats { margin-top: 9px; margin-bottom: 0; gap: 7px 8px; }
-  .hero-slide-experiment .hero-stats div { padding: 6px 5px; }
-  .hero-slide-experiment .hero-stats small { font-size: 6.4px; }
-  .hero-slide-experiment .hero-stats strong { font-size: 11px; }
-  .hero-experiment-card { min-width: 0; width: 100%; margin: 12px 0 14px; padding: 12px; }
+  .hero-slide-experiment .hero-copy.lead { margin-top: 12px; max-width: 320px; font-size: 11px; line-height: 1.45; }
+  .hero-slide-experiment .hero-actions { margin-top: 0; gap: 8px; }
+  .hero-experiment-card { min-width: 0; width: 100%; margin: 13px 0 14px; padding: 12px; }
   .hero-experiment-card small { font-size: 7.5px; letter-spacing: 1.8px; }
-  .hero-experiment-card strong { font-size: 28px; }
-  .hero-experiment-card span { font-size: 9px; line-height: 1.45; }
+  .hero-experiment-card strong { font-size: 31px; }
+  .hero-experiment-card span { font-size: 9.5px; line-height: 1.42; }
   .hero-dots { top: 14px; bottom: auto; }
   .mission-grid, .agent-grid { grid-template-columns: 1fr; }
   .submission-grid { grid-template-columns: 1fr; }
