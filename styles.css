@@ -116,9 +116,10 @@ h2 { margin-bottom: 0; font-family: var(--display); font-size: clamp(44px, 7vw, 
 .filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
 .filter, .leader-tab { border: 1px solid rgba(232,225,213,.16); background: #0b0c0c; color: var(--muted); padding: 10px 14px; font-size: 9px; letter-spacing: 1px; }
 .filter.active, .filter:hover, .leader-tab.active, .leader-tab:hover { border-color: var(--red); color: var(--red); background: rgba(145,30,24,.14); }
-.filter-select-wrap { display: grid; gap: 8px; width: min(440px, 100%); margin: 0 0 24px; }
+.filter-select-wrap { position: relative; display: grid; gap: 8px; width: 100%; margin: 0 0 24px; }
 .filter-select-wrap span { color: var(--red); font-size: 9px; letter-spacing: 2px; }
-.filter-select-wrap select { width: 100%; min-height: 48px; padding: 0 14px; border: 1px solid rgba(239,70,61,.36); border-radius: 0; background: rgba(8,9,9,.84); color: var(--cream); font-family: var(--mono); font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; outline: none; }
+.filter-select-wrap::after { content: "▾"; position: absolute; right: 16px; bottom: 14px; color: var(--red); font-size: 14px; line-height: 1; pointer-events: none; text-shadow: 0 0 12px rgba(239,70,61,.35); }
+.filter-select-wrap select { width: 100%; min-height: 54px; margin-top: 0; padding: 0 44px 0 14px; border: 1px solid rgba(232,225,213,.17); border-radius: 0; appearance: none; -webkit-appearance: none; background: #080909; color: var(--cream); font-family: var(--mono); font-size: 12px; letter-spacing: 1.4px; text-transform: uppercase; outline: none; }
 .filter-select-wrap select:focus { border-color: var(--red); box-shadow: 0 0 18px rgba(239,70,61,.16); }
 .mission-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .mission-card { min-height: 398px; padding: 20px; border: 1px solid rgba(232,225,213,.13); background: linear-gradient(145deg, rgba(22,19,18,.96), rgba(9,10,10,.95)); position: relative; transition: .2s; clip-path: polygon(0 0, 93% 0, 100% 8%, 100% 100%, 0 100%); }
