@@ -9,7 +9,8 @@ const STORAGE_KEY = "lazy-protocol-mvp-state";
 const LAZY_X_RULE = "Your X post must tag @LazyProtocol.";
 const ADMIN_CATEGORIES = ["World Cup", "Creative", "Predictions", "Research", "Community", "Real World", "Agents", "Sponsored", "Protocol Agent"];
 const missionFilters = ["Highest", ...ADMIN_CATEGORIES, "Ending Soon", "Expired"];
-const configuredApi = import.meta.env?.VITE_API_URL || import.meta.env?.VITE_API_BASE_URL || window.LAZY_CONFIG?.API_BASE_URL;
+const DEFAULT_API_BASE = "https://lazy-protocol-api-production.up.railway.app";
+const configuredApi = import.meta.env?.VITE_API_URL || import.meta.env?.VITE_API_BASE_URL || window.LAZY_CONFIG?.API_BASE_URL || DEFAULT_API_BASE;
 const API_BASE = configuredApi && !configuredApi.includes("%VITE_") ? configuredApi.replace(/\/$/, "") : "";
 const SOLANA_RPC_URL = import.meta.env?.VITE_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
 const REWARD_WALLET = import.meta.env?.VITE_REWARD_WALLET || window.LAZY_CONFIG?.REWARD_WALLET || "";
@@ -33,7 +34,7 @@ let adminCategoryFilter = "All";
 let adminMissionFilter = "All";
 let adminUserSearch = "";
 let adminUserFilter = "all";
-let liveData = { missions:null, agents:null, boards:null, submissions:{}, globalSubmissions:null, admin:null };
+let liveData = { missions:null, agents:null, boards:null, submissions:{}, globalSubmissions:null, admin:null, error:"" };
 let profileSyncWarning = "";
 
 const defaultState = { wallet:null, user:null, username:"HUMAN_001", avatarUrl:null, joined:[], submitted:[], boosts:{}, customMissions:[], submissions:[] };
@@ -98,14 +99,24 @@ function agentAvatarMarkup(item, size="") {
   const hue = item.id === "lazarus" ? 4 : seed % 360;
   return `<span class="agent-avatar punk ${size}" style="--agent-hue:${hue}"><i>${sigil}</i><em></em></span>`;
 }
+function placeholderAgent() {
+  return { id:"lazarus", name:"LAZARUS", handle:"@lazarus.lazy", avatar:"L", bio:"Lazy Protocol native mission agent.", missions:0, rewards:"$0", supporters:"0", score:"N/A" };
+}
 function agent(id) {
   const list = API_BASE ? (liveData.agents || []) : (liveData.agents || DATA.agents);
   const normalized = id === "neo" ? "neo-agent" : id;
-  return list.find((item) => item.id === normalized) || list[0] || { id:"lazarus", name:"LAZARUS", handle:"@lazarus.lazy", avatar:"L", bio:"Lazy Protocol native mission agent.", missions:0, rewards:"$0", supporters:"0", score:"N/A" };
+  return list.find((item) => item.id === normalized) || (!API_BASE ? list[0] || placeholderAgent() : null);
 }
-function agents() { return API_BASE ? (liveData.agents || []) : (liveData.agents || DATA.agents); }
+function agents() {
+  if (!API_BASE) return liveData.agents || DATA.agents;
+  return liveData.agents !== null ? liveData.agents : DATA.agents;
+}
 function ownedAgents() { return agents().filter((item)=>item.ownerWallet === state.wallet && item.approved !== false && (item.status || "APPROVED") === "APPROVED"); }
-function missions() { return API_BASE ? (liveData.missions || []) : (liveData.missions || [...state.customMissions, ...DATA.missions]); }
+function missions() {
+  const localMissions = [...state.customMissions, ...DATA.missions];
+  if (!API_BASE) return liveData.missions || localMissions;
+  return liveData.missions !== null ? liveData.missions : localMissions;
+}
 function mission(id) { return missions().find((item) => item.id === id); }
 async function api(path, options={}) {
   if (!API_BASE) {
@@ -290,6 +301,7 @@ async function refreshRemoteData() {
     ]);
     liveData.missions = missionPayload.missions;
     liveData.agents = agentPayload.agents;
+    liveData.error = "";
     if (boardPayload) liveData.boards = boardPayload;
     if (state.wallet) {
       const me = await api("/users/me");
@@ -302,6 +314,8 @@ async function refreshRemoteData() {
     }
     render();
   } catch (error) {
+    liveData.error = error.message || "Remote data unavailable.";
+    render();
     showToast(error.message);
   }
 }
@@ -399,7 +413,7 @@ function pageTop(kicker, title, description="") {
 }
 function statusBadge(item) { const status = statusFor(item); return `<span class="status-badge status-${status.toLowerCase().replace(" ","-")}">${status}</span>`; }
 function missionCard(item, featured=false) {
-  const creator = agent(item.agentId);
+  const creator = agent(item.agentId) || placeholderAgent();
   const disabled = ["Expired","Completed","Under Review","Removed"].includes(statusFor(item)) && !state.submitted.includes(item.id);
   return `<article class="mission-card ${featured ? "featured" : ""}">
     <div class="card-top"><div class="badge-stack"><span class="category">${item.category.toUpperCase()}</span>${statusBadge(item)}</div><span class="participant-top">♧ ${item.participants}</span></div>
@@ -412,8 +426,14 @@ function missionCard(item, featured=false) {
     <div class="card-actions"><button class="mini-button boost" data-boost="${item.id}">↯ BOOST REWARD</button><a class="mini-button quiet" href="${routeHref(actionHref(item))}" data-route>DETAILS</a><button class="mini-button primary" data-mission-action="${item.id}" ${disabled ? "disabled" : ""}>${actionLabel(item)}</button></div>
   </article>`;
 }
+function missionEmptyMessage() {
+  if (API_BASE && liveData.missions === null && !liveData.error) return "LOADING MISSIONS...";
+  if (API_BASE && liveData.error && liveData.missions === null) return "MISSION DATA COULD NOT BE LOADED. CHECK THE API CONNECTION.";
+  if (API_BASE) return "NO MISSIONS IN THE DATABASE YET.";
+  return "NO MISSIONS IN THIS SIGNAL BAND YET.";
+}
 function missionGrid(list, feature=true) {
-  if (!list.length) return `<div class="empty">NO MISSIONS IN THIS SIGNAL BAND YET.</div>`;
+  if (!list.length) return `<div class="empty">${missionEmptyMessage()}</div>`;
   if (!feature) return list.map((item)=>missionCard(item)).join("");
   const active = list.filter((item)=>!["Expired","Completed"].includes(statusFor(item)));
   const featured = [...(active.length ? active : list)].sort((a,b)=>pool(b)-pool(a))[0];
@@ -423,6 +443,15 @@ function agentCard(item) {
   const avatar = agentAvatarMarkup(item);
   const href = item.id === "neo-agent" ? "/agents/neo" : `/agents/${item.id}`;
   return `<article class="agent-card"><div class="agent-head">${avatar}<div><h3>${item.name}</h3><span class="handle">${item.handle}</span></div></div><p class="agent-bio">${item.bio}</p><div class="agent-stats"><div><small>MISSIONS CREATED</small><b>${item.missions}</b></div><div><small>REWARDS PAID</small><b>${item.rewards}</b></div><div><small>SUPPORTERS</small><b>${item.supporters}</b></div><div><small>TRUST SCORE</small><b>${item.score}</b></div></div><a class="mini-button primary full" href="${routeHref(href)}" data-route>VIEW AGENT</a></article>`;
+}
+function agentEmptyMessage() {
+  if (API_BASE && liveData.agents === null && !liveData.error) return "LOADING AGENTS...";
+  if (API_BASE && liveData.error && liveData.agents === null) return "AGENT DATA COULD NOT BE LOADED. CHECK THE API CONNECTION.";
+  if (API_BASE) return "NO AGENTS IN THE DATABASE YET.";
+  return "NO AGENTS MATCH THAT SIGNAL.";
+}
+function agentGridMarkup(list) {
+  return list.length ? list.map(agentCard).join("") : `<div class="empty">${agentEmptyMessage()}</div>`;
 }
 function filters(active=missionFilter) {
   return `<label class="filter-select-wrap"><span>MISSION FILTER</span><select data-filter-select>${missionFilters.map((item) => `<option value="${item}" ${item === active ? "selected" : ""}>${item.toUpperCase()}</option>`).join("")}</select></label>`;
@@ -466,7 +495,7 @@ function renderHome() {
   app.innerHTML = `${heroSlideMarkup()}${ticker()}
   <section class="content-section section-shell"><div class="section-heading"><div><p class="eyebrow">01 // DEPLOY YOUR ATTENTION</p><h2>MISSION FEED</h2></div><a class="text-link" href="${routeHref("/missions")}" data-route>VIEW ALL MISSIONS →</a></div><div class="mission-grid">${missionGrid(missions().slice(0,6))}</div></section>
   <section class="content-section league-section"><div class="section-shell league-inner"><div><p class="eyebrow">SPECIAL CAMPAIGN // SEASON 01</p><div class="cup-lockup"><span class="cup-icon">◈</span><h2>WORLD CUP<br><span>FANTASY</span></h2></div><p class="league-description">Agents create football missions. Humans predict, create, compete, and earn.</p><p class="league-note">FREE-TO-PLAY REWARD MISSIONS <span>•</span> NO BETTING <span>•</span> GLOBAL TEAMS</p><a class="button primary" href="${routeHref("/world-cup")}" data-route>ENTER FANTASY</a></div><div class="league-board"><p class="board-label">LIVE MISSION BOARD</p><ol>${missions().filter((m)=>m.category==="World Cup").slice(0,5).map((m,i)=>`<li><span>0${i+1}</span><b>${m.title}</b><em>${rewardLabel(m)} POOL</em></li>`).join("")}</ol></div></div></section>
-  <section class="content-section section-shell"><div class="section-heading"><div><p class="eyebrow">02 // MISSION ARCHITECTS</p><h2>TOP AGENTS</h2></div><a class="text-link" href="${routeHref("/agents")}" data-route>VIEW ALL AGENTS →</a></div><div class="agent-grid">${agents().slice(0,4).map(agentCard).join("")}</div></section>
+  <section class="content-section section-shell"><div class="section-heading"><div><p class="eyebrow">02 // MISSION ARCHITECTS</p><h2>TOP AGENTS</h2></div><a class="text-link" href="${routeHref("/agents")}" data-route>VIEW ALL AGENTS →</a></div><div class="agent-grid">${agentGridMarkup(agents().slice(0,4))}</div></section>
   <section class="content-section board-section"><div class="section-shell"><div class="section-heading"><div><p class="eyebrow">03 // SIGNAL RANKINGS</p><h2>WORKFORCE LEADERBOARD</h2></div><a class="text-link" href="${routeHref("/leaderboard")}" data-route>FULL LEADERBOARD →</a></div>${leaderboard("humans",3)}</div></section>`;
 }
 function renderMissions() {
@@ -480,7 +509,7 @@ function renderMissions() {
 function renderMissionDetail(id) {
   const item = mission(id); if (!item) return API_BASE && !liveData.missions ? app.innerHTML=`${pageTop("MISSION NETWORK // LOADING","LOADING MISSION","Fetching the latest mission record.")}<section class="section-shell content-section compact"><div class="empty">LOADING MISSION...</div></section>` : renderNotFound();
   if (API_BASE && !liveData.submissions[id]) api(`/missions/${id}/submissions`).then((payload)=>{ liveData.submissions[id]=payload.submissions; render(); }).catch((error)=>showToast(error.message));
-  const creator = agent(item.agentId); const userSubmission = state.submissions.find((s)=>s.missionId===id);
+  const creator = agent(item.agentId) || placeholderAgent(); const userSubmission = state.submissions.find((s)=>s.missionId===id);
   app.innerHTML = `${pageTop(`${item.category.toUpperCase()} // MISSION DETAIL`, item.title, item.description)}<section class="detail-layout section-shell"><article class="detail-main panel"><div class="detail-strip">${statusBadge(item)}<span>CREATED BY <a href="${routeHref(`/agents/${creator.id === "neo-agent" ? "neo" : creator.id}`)}" data-route>${creator.name}</a></span><span>${item.category.toUpperCase()}</span></div><div class="detail-pool"><div><small>REWARD POOL</small><strong>${rewardLabel(item)}</strong></div><div><small>TIME REMAINING</small><strong data-countdown="${item.id}">${countdown(item)}</strong></div></div><div class="action-row"><button class="button primary" data-mission-action="${item.id}">${actionLabel(item)}</button><button class="button secondary" data-boost="${item.id}">BOOST REWARD</button></div>${state.joined.includes(id)?`<p class="joined-note">● YOU JOINED THIS MISSION</p>`:""}<h3 class="panel-title">MISSION RULES</h3><ul class="rule-list">${ensureRules(item.rules).map((rule)=>`<li>${rule}</li>`).join("")}</ul><h3 class="panel-title">PROOF REQUIREMENT</h3><p class="page-copy">${item.proof}. Submitted X post must be from your connected verified X account and tag @LazyProtocol.</p></article><aside class="detail-side"><div class="panel stat-panel"><div><small>PARTICIPANTS</small><b>${item.participants}</b></div><div><small>SUBMISSIONS</small><b>${item.submissions}</b></div><div><small>CATEGORY</small><b>${item.category}</b></div></div>${userSubmission?`<div class="panel"><p class="eyebrow">YOUR SUBMISSION</p><h3>${userSubmission.title}</h3><p class="page-copy">${userSubmission.description}</p><a class="text-link" href="${userSubmission.proof}" target="_blank">VIEW PROOF →</a></div>`:""}</aside></section><section class="content-section section-shell compact" id="submissions"><div class="section-heading"><div><p class="eyebrow">PROOF STREAM</p><h2>SUBMISSIONS</h2></div></div><div class="submission-list">${submissionFeed(id)}</div></section>`;
   scrollToHash();
 }
@@ -501,7 +530,7 @@ function submissionCard(s) {
 }
 function renderWorldCup() {
   const world = missions().filter((m)=>m.category==="World Cup" || m.category==="Predictions");
-  app.innerHTML = `${pageTop("SPECIAL CAMPAIGN // SEASON 01","WORLD CUP FANTASY","Agents create football missions. Humans predict, create, compete, and earn.")}<section class="section-shell league-banner"><p>FREE-TO-PLAY REWARD QUESTS <span>•</span> NO BETTING <span>•</span> GLOBAL TEAMS</p></section>${missionSection("ACTIVE WORLD CUP MISSIONS",world)}${missionSection("MATCHDAY MISSIONS",world.filter((m)=>["final-score","fan-reaction"].includes(m.id)))}${missionSection("PREDICTION MISSIONS",world.filter((m)=>m.category==="Predictions"||m.id==="final-score"))}${missionSection("CREATIVE MISSIONS",world.filter((m)=>["world-cup-meme","country-poster"].includes(m.id)))}<section class="content-section section-shell"><div class="section-heading"><div><p class="eyebrow">FEATURED TEAMS</p><h2>FEATURED AGENTS</h2></div></div><div class="agent-grid">${agents().slice(0,4).map(agentCard).join("")}</div></section><section class="content-section board-section"><div class="section-shell"><h2>COUNTRY LEADERBOARD</h2>${leaderboard("countries",5)}<h2 class="spaced-title">AGENT LEADERBOARD</h2>${leaderboard("agents",4)}</div></section>`;
+  app.innerHTML = `${pageTop("SPECIAL CAMPAIGN // SEASON 01","WORLD CUP FANTASY","Agents create football missions. Humans predict, create, compete, and earn.")}<section class="section-shell league-banner"><p>FREE-TO-PLAY REWARD QUESTS <span>•</span> NO BETTING <span>•</span> GLOBAL TEAMS</p></section>${missionSection("ACTIVE WORLD CUP MISSIONS",world)}${missionSection("MATCHDAY MISSIONS",world.filter((m)=>["final-score","fan-reaction"].includes(m.id)))}${missionSection("PREDICTION MISSIONS",world.filter((m)=>m.category==="Predictions"||m.id==="final-score"))}${missionSection("CREATIVE MISSIONS",world.filter((m)=>["world-cup-meme","country-poster"].includes(m.id)))}<section class="content-section section-shell"><div class="section-heading"><div><p class="eyebrow">FEATURED TEAMS</p><h2>FEATURED AGENTS</h2></div></div><div class="agent-grid">${agentGridMarkup(agents().slice(0,4))}</div></section><section class="content-section board-section"><div class="section-shell"><h2>COUNTRY LEADERBOARD</h2>${leaderboard("countries",5)}<h2 class="spaced-title">AGENT LEADERBOARD</h2>${leaderboard("agents",4)}</div></section>`;
 }
 function missionSection(title,list){ return `<section class="content-section section-shell compact"><div class="section-heading"><div><p class="eyebrow">WORLD CUP SIGNAL</p><h2>${title}</h2></div></div><div class="mission-grid">${missionGrid(list)}</div></section>`; }
 function leaderboardRows(tab) {
@@ -534,15 +563,17 @@ function renderSubmissions() {
 }
 function renderAgents() {
   const visible=agents().filter((a)=>`${a.name} ${a.bio}`.toLowerCase().includes(agentQuery.toLowerCase()));
-  app.innerHTML=`${pageTop("MISSION ARCHITECTS // ACTIVE","AGENT NETWORK","Meet the AI agents creating quests, funding rewards, and coordinating human attention.")}<section class="content-section section-shell compact"><div class="section-heading mini"><label class="search-label">SEARCH AGENTS<input id="agent-search" value="${agentQuery}" placeholder="SEARCH NAME OR SIGNAL" /></label><a class="button secondary" href="${routeHref("/agents/register")}" data-route>REGISTER AGENT</a></div><div class="agent-grid">${visible.length?visible.map(agentCard).join(""):`<div class="empty">NO AGENTS MATCH THAT SIGNAL.</div>`}</div></section>`;
+  app.innerHTML=`${pageTop("MISSION ARCHITECTS // ACTIVE","AGENT NETWORK","Meet the AI agents creating quests, funding rewards, and coordinating human attention.")}<section class="content-section section-shell compact"><div class="section-heading mini"><label class="search-label">SEARCH AGENTS<input id="agent-search" value="${agentQuery}" placeholder="SEARCH NAME OR SIGNAL" /></label><a class="button secondary" href="${routeHref("/agents/register")}" data-route>REGISTER AGENT</a></div><div class="agent-grid">${visible.length?visible.map(agentCard).join(""):`<div class="empty">${agentQuery ? "NO AGENTS MATCH THAT SIGNAL." : agentEmptyMessage()}</div>`}</div></section>`;
 }
 function renderAgentRegister() {
   if(!state.wallet) return app.innerHTML=`${pageTop("AGENT REGISTRY // LOCKED","REGISTER AGENT","Connect the Solana wallet that will control this agent. This can be the agent wallet itself or the human/team owner wallet.")}<section class="section-shell content-section compact"><button class="button primary" data-open-wallet>CONNECT</button></section>`;
   app.innerHTML=`${pageTop("AGENT REGISTRY // AGENT/OWNER MODE","REGISTER AGENT","Create an agent profile tied to the connected agent/owner wallet. This wallet can be the agent's own wallet or the human/team owner wallet, and admin approval is required before funded missions or API access.")}<section class="section-shell form-shell"><form id="agent-register-form" class="panel form-grid"><label>AGENT / OWNER WALLET<input readonly value="${state.wallet}"></label><p class="joined-note full-field">Use the wallet that should control this agent. It may be the autonomous agent wallet, the creator wallet, or the team owner wallet responsible for funding and API access.</p><label>AGENT NAME<input required name="name" placeholder="NEO AGENT"></label><label>HANDLE<input name="handle" placeholder="@neo.agent"></label><label>CATEGORY<select name="category">${categoryOptions("Agents")}</select></label><label>AVATAR URL<input name="avatarUrl" placeholder="https://..."></label><label>WEBSITE<input name="website" placeholder="https://..."></label><label>X HANDLE<input name="xHandle" placeholder="@agent"></label><label class="full-field">BIO<textarea required name="bio" placeholder="What missions will this agent create?"></textarea></label><button class="button primary" type="submit">REGISTER AGENT</button></form></section>`;
 }
 function renderAgentDetail(id) {
-  const item=agent(id); const created=missions().filter((m)=>m.agentId===item.id);
+  const item=agent(id);
   if (API_BASE && !liveData.agents) return app.innerHTML=`${pageTop("AGENT NETWORK // LOADING","LOADING AGENT","Fetching the latest agent profile.")}<section class="section-shell content-section compact"><div class="empty">LOADING AGENT...</div></section>`;
+  if (!item) return app.innerHTML=`${pageTop("AGENT NETWORK // EMPTY","AGENT NOT FOUND","No live agent record exists for this route yet.")}<section class="section-shell content-section compact"><a class="button secondary" href="${routeHref("/agents")}" data-route>VIEW AGENTS</a></section>`;
+  const created=missions().filter((m)=>m.agentId===item.id);
   const avatar = agentAvatarMarkup(item, "large-avatar");
   const ownerTools = state.wallet && item.ownerWallet === state.wallet && item.status === "APPROVED" ? `<div class="action-row"><button class="button secondary" data-agent-api-key="${item.id}">${item.hasApiKey ? "ROTATE API KEY" : "GENERATE API KEY"}</button>${item.hasApiKey ? `<button class="button secondary" data-agent-api-revoke="${item.id}">REVOKE API KEY</button>` : ""}<a class="button secondary" href="${routeHref("/developers")}" data-route>API DOCS</a></div>` : "";
   app.innerHTML=`<section class="agent-profile-strip"><div class="section-shell"><p class="eyebrow">AGENT PROFILE // ${item.status || "ACTIVE"}</p><article class="panel agent-profile-card"><div class="agent-head large">${avatar}<div><h2>${item.name}</h2><span class="handle">${item.handle}</span><p class="agent-profile-bio">${item.bio}</p><p class="profile-line">SOURCE <b>${item.source || "EXTERNAL"}</b></p><p class="profile-line">API KEY <b>${item.hasApiKey ? "ACTIVE" : "NOT GENERATED"}</b></p>${ownerTools}</div></div><div class="agent-stats wide"><div><small>MISSIONS CREATED</small><b>${item.missions}</b></div><div><small>REWARDS PAID</small><b>${item.rewards}</b></div><div><small>SUPPORTERS</small><b>${item.supporters}</b></div><div><small>TRUST SCORE</small><b>${item.score}</b></div></div></article></div></section>${missionSection("ACTIVE MISSIONS",created)}`;
