@@ -49,6 +49,7 @@ button { cursor: pointer; }
 .hero-carousel { padding-left: 0; padding-right: 0; }
 .hero-track { width: 100%; display: flex; transition: transform .42s ease; will-change: transform; }
 .hero-slide { width: 100%; min-width: 100%; min-height: 780px; padding: 0 24px 86px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+.hero-core-title { max-width: 1120px; font-size: clamp(72px, 9.5vw, 152px); line-height: .9; letter-spacing: -1.5px; }
 .hero-title-alt { font-size: clamp(92px, 12vw, 176px); line-height: .86; letter-spacing: -1.5px; }
 .hero-title-alt span { color: transparent; -webkit-text-stroke: 2px var(--cream); }
 .hero-bounty, .hero-agent-card { display: grid; gap: 8px; min-width: min(560px, calc(100vw - 48px)); margin: 24px 0 34px; padding: 24px; border: 1px solid rgba(232,225,213,.14); background: rgba(8,9,9,.72); box-shadow: 0 0 36px rgba(239,70,61,.12); }
@@ -68,14 +69,18 @@ h1 span { display: block; }
 h1 .outline { color: transparent; -webkit-text-stroke: 2px var(--cream); letter-spacing: -1px; }
 .hero-tagline { margin: 30px 0 12px; color: var(--cream); font-size: 14px; font-weight: 700; letter-spacing: 6px; }
 .hero-copy { color: var(--muted); font-size: 13px; letter-spacing: 1px; }
+.hero-copy.lead { max-width: 760px; margin: 24px 0 0; color: var(--cream); font-size: 14px; line-height: 1.7; letter-spacing: 2px; }
+.hero-small-line { margin: 12px 0 0; color: var(--muted); font-size: 11px; letter-spacing: 1.5px; }
 .hero-stats { display: flex; gap: 30px; margin: 22px 0 38px; }
 .hero-stats div { min-width: 178px; padding: 12px 16px; border: 1px solid rgba(232,225,213,.15); background: rgba(8,9,9,.68); }
 .hero-stats small { color: var(--muted); font-size: 9px; letter-spacing: 1.5px; }
 .hero-stats strong { color: var(--cream); margin-left: 10px; font-size: 14px; }
 .hero-stats div:nth-child(2) strong { color: var(--red); }
 .hero-actions { display: flex; gap: 16px; }
+.hero-actions.three { flex-wrap: wrap; justify-content: center; }
 .button { display: inline-flex; justify-content: center; align-items: center; min-height: 54px; padding: 0 28px; border: 1px solid var(--red); background: transparent; color: var(--cream); font-weight: 700; font-size: 12px; letter-spacing: 2px; transition: .2s; clip-path: polygon(0 0, 94% 0, 100% 22%, 100% 100%, 6% 100%, 0 78%); }
 .button.primary { background: rgba(145,30,24,.18); color: var(--red); box-shadow: inset 0 0 20px rgba(239,70,61,.05); }
+.button.tertiary { min-height: 44px; padding: 0 18px; border-color: rgba(232,225,213,.16); color: var(--muted); background: rgba(255,255,255,.015); font-size: 10px; }
 .button:hover { background: var(--red); color: #090909; box-shadow: 0 0 24px rgba(239,70,61,.25); }
 .scroll-line { position: absolute; bottom: 28px; color: #706a63; font-size: 8px; letter-spacing: 2px; }
 .scroll-line span { width: 1px; height: 22px; display: block; background: var(--red); margin: 0 auto 8px; }
@@ -222,6 +227,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
 .doc-card h2 { font-size: clamp(42px, 6vw, 72px); margin-bottom: 18px; }
 .doc-card h3, .flow-step h3, .code-card h3 { margin-bottom: 12px; font-family: var(--display); font-size: 31px; letter-spacing: 1px; line-height: 1; }
 .doc-card p:not(.doc-kicker), .flow-step p, .architecture-block p { color: var(--muted); font-size: 12px; line-height: 1.75; }
+.doc-list { margin: 16px 0 0; padding-left: 18px; color: var(--muted); font-size: 12px; line-height: 1.9; }
+.doc-card[id], .flow-section[id], .architecture-block[id] { scroll-margin-top: 92px; }
 .flow-section { padding-top: 64px; padding-bottom: 42px; }
 .flow-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .flow-step { padding: 22px; position: relative; overflow: hidden; }
@@ -424,24 +431,28 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
   .brand-mark { width: 21px; height: 21px; font-size: 10px; }
   .wallet-button { padding: 9px 10px; }
   .wallet-dot { width: 6px; height: 6px; }
-  .hero { min-height: calc(100svh - 62px); max-height: 690px; padding-top: 34px; padding-bottom: 26px; justify-content: center; }
+  .hero { min-height: calc(100svh - 62px); max-height: none; padding-top: 34px; padding-bottom: 26px; justify-content: center; }
   .hero-carousel { padding-top: 0; padding-bottom: 0; }
-  .hero-slide { min-height: calc(100svh - 62px); max-height: 690px; padding: 34px 14px 82px; }
+  .hero-slide { min-height: calc(100svh - 62px); max-height: none; padding: 48px 14px 98px; }
   .hero::before { width: 94vw; height: 92px; top: 30%; }
   .hero h1 { width: 100%; font-size: clamp(74px, 25.5vw, 102px); line-height: .8; letter-spacing: -1px; }
+  .hero h1.hero-core-title { font-size: clamp(38px, 10.8vw, 54px); line-height: .95; letter-spacing: -.5px; }
   .hero h1 .outline { -webkit-text-stroke: 1.35px var(--cream); transform: scaleX(.76); transform-origin: center; }
   .hero h1.hero-title-alt { font-size: clamp(58px, 16vw, 86px); letter-spacing: -.5px; line-height: .9; }
   .hero-title-alt span { -webkit-text-stroke: 1.2px var(--cream); }
   .hero .eyebrow { margin-bottom: 12px; font-size: 8.5px; letter-spacing: 2.2px; }
   .hero-tagline { margin: 18px 0 9px; font-size: 10px; letter-spacing: 2.8px; line-height: 1.7; }
   .hero-copy { max-width: 340px; margin-bottom: 0; font-size: 11px; line-height: 1.65; }
+  .hero-copy.lead { margin-top: 16px; font-size: 11px; line-height: 1.55; letter-spacing: 1px; }
+  .hero-small-line { margin-top: 8px; font-size: 9px; line-height: 1.5; letter-spacing: 1px; }
   .hero-stats { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; margin: 17px 0 22px; justify-items: stretch; }
   .hero-stats div { min-width: 0; padding: 11px 8px; }
   .hero-stats div:nth-child(3) { grid-column: 1 / -1; justify-self: center; width: 48%; min-width: 178px; }
   .hero-stats small { font-size: 7.5px; letter-spacing: 1px; }
   .hero-stats strong { margin-left: 5px; font-size: 13px; }
   .hero-actions { width: 100%; flex-direction: column; gap: 8px; }
-  .hero-actions .button { min-height: 50px; }
+  .hero-actions .button { min-height: 48px; }
+  .hero-actions .button.tertiary { min-height: 40px; }
   .hero-bounty, .hero-agent-card { min-width: 0; width: 100%; margin: 16px 0 20px; padding: 14px; }
   .hero-bounty strong { font-size: 52px; }
   .hero-bounty span { font-size: 19px; letter-spacing: 2px; }
