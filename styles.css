@@ -471,6 +471,12 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
   .hero-actions { width: 100%; flex-direction: column; gap: 8px; }
   .hero-actions .button { min-height: 44px; }
   .hero-actions .button.tertiary { min-height: 40px; }
+  .hero-slide-lazy .hero-stats { margin: 12px 0 14px; gap: 7px 8px; }
+  .hero-slide-lazy .hero-stats div { padding: 7px 6px; }
+  .hero-slide-lazy .hero-stats small { font-size: 6.5px; }
+  .hero-slide-lazy .hero-stats strong { font-size: 11px; }
+  .hero-slide-lazy .hero-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .hero-slide-lazy .hero-actions .button { min-height: 40px; padding: 0 8px; font-size: 8px; letter-spacing: 1px; }
   .hero-bounty, .hero-agent-card { min-width: 0; width: 100%; margin: 16px 0 20px; padding: 14px; }
   .hero-bounty strong { font-size: 52px; }
   .hero-bounty span { font-size: 19px; letter-spacing: 2px; }
