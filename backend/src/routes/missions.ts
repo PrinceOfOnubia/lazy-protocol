@@ -106,7 +106,6 @@ missionsRouter.post("/:id/boost", asyncRoute(async (req, res) => {
   const boostTxHash = String(req.body.boostTxHash || req.body.txHash || req.body.fundingTxHash || "");
   const mission = await prisma.mission.findUniqueOrThrow({ where: { slug: req.params.id } });
   const currency = req.body.currency === "SOL" ? "SOL" : req.body.currency === "USDC" ? "USDC" : mission.rewardCurrency;
-  if (currency !== mission.rewardCurrency) return res.status(400).json({ error: `Boost currency must match mission currency (${mission.rewardCurrency}).` });
   const verified = await verifyFundingTx({ txHash: boostTxHash, fromWallet: wallet, amount, currency });
   const boost = await prisma.$transaction(async (tx) => {
     const created = await tx.rewardBoost.create({
@@ -115,7 +114,9 @@ missionsRouter.post("/:id/boost", asyncRoute(async (req, res) => {
     await tx.fundingTransaction.create({
       data: { txHash: boostTxHash, type: "BOOST", missionId: mission.id, boostId: created.id, fromWallet: wallet, toWallet: verified.toWallet, currency, amount, amountSol: currency === "SOL" ? amount : 0, status: "CONFIRMED", confirmedAt: new Date() },
     });
-    await tx.mission.update({ where: { id: mission.id }, data: { rewardPool: { increment: amount } } });
+    if (currency === mission.rewardCurrency) {
+      await tx.mission.update({ where: { id: mission.id }, data: { rewardPool: { increment: amount } } });
+    }
     return created;
   });
   res.status(201).json({ boost });
