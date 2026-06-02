@@ -41,6 +41,11 @@ const defaultState = { wallet:null, user:null, username:"HUMAN_001", avatarUrl:n
 let state = { ...defaultState, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") };
 if (state.wallet === "7xLP4nA9sQeK2vR8YzT6mWc3JfH5uB1p") state.wallet = null;
 let activeWallet = null;
+function signerError(currency="SOL") {
+  const error = new Error(`Reconnect your Solana wallet to approve the ${currency} transfer.`);
+  error.requiresWalletReconnect = true;
+  return error;
+}
 
 const installed = (getter) => {
   try { return Boolean(getter()); } catch (_error) { return false; }
@@ -162,7 +167,7 @@ function walletOptions() {
 async function sendSolPayment(amountSol, label="fund this action") {
   if (!state.wallet) throw new Error("Connect a Solana wallet first.");
   if (!REWARD_WALLET) throw new Error("Reward wallet is unavailable. Please try again later.");
-  if (!activeWallet?.sendTransaction) throw new Error("Your wallet cannot sign a SOL transfer here.");
+  if (!activeWallet?.sendTransaction) throw signerError("SOL");
   const amountLamports = Math.round(Number(amountSol) * LAMPORTS_PER_SOL);
   if (!Number.isFinite(amountLamports) || amountLamports <= 0) throw new Error("Enter a positive SOL amount.");
   const fromPubkey = new PublicKey(state.wallet);
@@ -238,7 +243,7 @@ async function findUsdcSourceAccount(owner, amount) {
 async function sendUsdcPayment(amount, label="fund this action") {
   if (!state.wallet) throw new Error("Connect a Solana wallet first.");
   if (!REWARD_WALLET) throw new Error("Reward wallet is unavailable. Please try again later.");
-  if (!activeWallet?.sendTransaction) throw new Error("Your wallet cannot sign a USDC transfer here.");
+  if (!activeWallet?.sendTransaction) throw signerError("USDC");
   const fromPubkey = new PublicKey(state.wallet);
   const rewardPubkey = new PublicKey(REWARD_WALLET);
   const mint = new PublicKey(USDC_MINT);
@@ -270,6 +275,7 @@ async function connectWallet(key) {
     if (!wallet) throw new Error("Wallet connection did not complete.");
     activeWallet = connected;
     state.wallet = wallet;
+    state.walletProviderKey = key;
     state.user = state.user || { wallet, username: state.username, avatarUrl: state.avatarUrl || null, xVerified: false, xHandle: null };
     state.user.wallet = wallet;
     state.username = state.user.username || state.username;
@@ -287,6 +293,7 @@ async function disconnectWallet() {
   await activeWallet?.disconnect?.();
   activeWallet = null;
   state.wallet = null;
+  state.walletProviderKey = null;
   save();
   render();
   showToast("WALLET DISCONNECTED");
@@ -395,6 +402,10 @@ function totalHumansJoined() {
 function showToast(message) {
   toast.textContent = message; toast.classList.add("show");
   setTimeout(() => toast.classList.remove("show"), 3200);
+}
+function handleFundingError(error, fallback="Transaction cancelled") {
+  if (error?.requiresWalletReconnect) openWallet();
+  showToast(error?.message || fallback);
 }
 function setBusy(button, label="WORKING...") {
   if (!button) return () => {};
@@ -835,7 +846,7 @@ document.addEventListener("click",(event)=>{
   const confirmTarget=event.target.closest("[data-confirm]"); if(confirmTarget && !window.confirm(confirmTarget.dataset.confirm)) return;
   const adminJump=event.target.closest("[data-admin-jump]"); if(adminJump){const id=adminJump.dataset.adminJump;document.querySelector(`#admin-${id}`)?.scrollIntoView({behavior:"smooth",block:"start"});document.querySelectorAll("[data-admin-jump]").forEach((node)=>node.classList.toggle("active",node===adminJump));const select=document.querySelector("[data-admin-jump-select]");if(select)select.value=id;return;}
   const lazarusGenerate=event.target.closest("[data-lazarus-generate]"); if(lazarusGenerate){const form=lazarusGenerate.closest("form");const done=setBusy(lazarusGenerate,"GENERATING...");api("/admin/lazarus/generate-description",{method:"POST",body:JSON.stringify({wallet:state.wallet,type:new FormData(form).get("type")})}).then((payload)=>{form.querySelector("[name='description']").value=payload.description;showToast("LAZARUS DESCRIPTION GENERATED");}).catch((error)=>showToast(error.message)).finally(done);return;}
-  const walletMenu=event.target.closest("[data-wallet-menu]"); if(walletMenu){ if(state.wallet){const drop=document.querySelector("[data-wallet-dropdown]");drop.hidden=!drop.hidden;drop.innerHTML=`<a href="${routeHref("/profile")}" data-route>PROFILE</a><button data-disconnect>DISCONNECT</button>`;} else openWallet();return;}
+  const walletMenu=event.target.closest("[data-wallet-menu]"); if(walletMenu){ if(state.wallet){const drop=document.querySelector("[data-wallet-dropdown]");drop.hidden=!drop.hidden;drop.innerHTML=`${activeWallet?.sendTransaction ? "" : `<button data-open-wallet>RECONNECT WALLET</button>`}<a href="${routeHref("/profile")}" data-route>PROFILE</a><button data-disconnect>DISCONNECT</button>`;} else openWallet();return;}
   const walletChoice=event.target.closest("[data-connect-wallet]"); if(walletChoice){ connectWallet(walletChoice.dataset.connectWallet); return; }
   if(event.target.closest("[data-mobile-menu-close]")){closeMobileMenu();return;}
   if(event.target.closest("[data-connect-x]")){ if(!state.wallet) return openWallet(); return openConnectX(); }
@@ -883,20 +894,20 @@ document.addEventListener("change",(event)=>{
 document.addEventListener("input",(event)=>{if(event.target.name==="amount"&&document.querySelector("[data-boost-total]")){const form=event.target.closest("form");const item=mission(form.dataset.id);const boost=Number(event.target.value||0);const currency=form.dataset.currency||rewardCurrency(item);document.querySelector("[data-boost-preview]").innerHTML=rewardAmountHtml(boost,currency);document.querySelector("[data-boost-total]").innerHTML=rewardAmountHtml(pool(item)+boost,currency);}if(event.target.name==="type"&&event.target.closest("#admin-lazarus-form")){const template=(liveData.admin?.integrations?.lazarusTemplates||[]).find((item)=>item.id===event.target.value);const textarea=document.querySelector("[name='description']");if(template&&textarea&&!textarea.value)textarea.value=template.description;}if(event.target.id==="agent-search"){agentQuery=event.target.value;renderAgents();document.querySelector("#agent-search")?.focus();}if(event.target.matches("[data-admin-user-search]")){adminUserSearch=event.target.value;liveData.adminUsers=null;clearTimeout(window.__adminSearch);window.__adminSearch=setTimeout(()=>renderAdminUsers(),250);}});
 document.addEventListener("submit", async (event)=>{
   event.preventDefault(); const form=event.target; const fd=new FormData(form);
-  if(form.id==="boost-form"){const done=setBusy(form.querySelector("button[type='submit']"),"CONFIRMING...");try{const id=form.dataset.id;const amount=Number(fd.get("amount"));const currency=form.dataset.currency;showToast("CONFIRM FUNDING IN WALLET");const fundingTxHash=await sendRewardPayment(amount,currency,"boost this mission");await api(`/missions/${id}/boost`,{method:"POST",body:JSON.stringify({wallet:state.wallet,amount,currency,fundingTxHash})});state.boosts[id]=Number(state.boosts[id]||0)+amount;save();closeModal();await refreshRemoteData();showToast("BOOST CONFIRMED");}catch(error){showToast(error.message || "Transaction could not be verified");}finally{done();}}
+  if(form.id==="boost-form"){const done=setBusy(form.querySelector("button[type='submit']"),"CONFIRMING...");try{const id=form.dataset.id;const amount=Number(fd.get("amount"));const currency=form.dataset.currency;showToast("CONFIRM FUNDING IN WALLET");const fundingTxHash=await sendRewardPayment(amount,currency,"boost this mission");await api(`/missions/${id}/boost`,{method:"POST",body:JSON.stringify({wallet:state.wallet,amount,currency,fundingTxHash})});state.boosts[id]=Number(state.boosts[id]||0)+amount;save();closeModal();await refreshRemoteData();showToast("BOOST CONFIRMED");}catch(error){handleFundingError(error,"Transaction could not be verified");}finally{done();}}
   // Route accepted proof into the verifier, moderation queue, and reward settlement pipeline.
   if(form.id==="submit-form"){try{const id=form.dataset.id;await api(`/missions/${id}/submissions`,{method:"POST",body:JSON.stringify({wallet:state.wallet,title:fd.get("title"),description:fd.get("description"),proofUrl:fd.get("proof"),xPostUrl:fd.get("x"),mediaUrl:fd.get("media")})});state.submitted.push(id);save();closeModal();delete liveData.submissions[id];liveData.globalSubmissions=null;await refreshRemoteData();showToast("ATTEMPT SUBMITTED // X AUTHOR VERIFIED");}catch(error){showToast(error.message);}}
   if(form.id==="edit-form"){const username=fd.get("username").toUpperCase();const avatarUrl=String(fd.get("avatarUrl")||"").trim();state.username=username;state.avatarUrl=avatarUrl || null;state.user={...(state.user||{}),wallet:state.wallet,username,avatarUrl:avatarUrl||null};save();closeModal();render();showToast("PROFILE UPDATED");if(API_BASE){try{const payload=await api("/users/me",{method:"PATCH",body:JSON.stringify({wallet:state.wallet,username,avatarUrl:avatarUrl||null})});state.user=payload.user;state.avatarUrl=payload.user.avatarUrl||avatarUrl||null;profileSyncWarning="";save();render();}catch(error){profileSyncWarning="Profile updated. Network sync will retry shortly.";render();}}}
   if(form.id==="admin-disqualify-form"){try{await api(`/admin/submissions/${form.dataset.id}/disqualify`,{method:"POST",body:JSON.stringify({wallet:state.wallet,reason:fd.get("reason"),note:fd.get("note")})});closeModal();liveData.admin=null;renderAdmin();showToast("SUBMISSION DISQUALIFIED");}catch(error){showToast(error.message);}}
   if(form.id==="admin-pay-form"){try{await api(`/admin/submissions/${form.dataset.id}/mark-paid`,{method:"POST",body:JSON.stringify({wallet:state.wallet,payoutWallet:fd.get("payoutWallet"),payoutAmount:Number(fd.get("payoutAmount")),payoutCurrency:fd.get("payoutCurrency"),payoutTxHash:fd.get("payoutTxHash"),payoutNote:fd.get("payoutNote")})});closeModal();liveData.admin=null;renderAdmin();showToast("WINNER MARKED PAID");}catch(error){showToast(error.message);}}
-  if(form.id==="admin-boost-form"){const done=setBusy(form.querySelector("button[type='submit']"),"CONFIRMING...");try{const amount=Number(fd.get("rewardBoost"));const currency=form.dataset.currency || "USDC";showToast("CONFIRM FUNDING IN WALLET");const fundingTxHash=await sendRewardPayment(amount,currency,"boost this mission");await api(`/missions/${form.dataset.id}/boost`,{method:"POST",body:JSON.stringify({wallet:state.wallet,amount,currency,fundingTxHash})});closeModal();liveData.admin=null;await refreshRemoteData();renderAdmin();showToast("BOOST CONFIRMED");}catch(error){showToast(error.message || "Transaction could not be verified");}finally{done();}}
+  if(form.id==="admin-boost-form"){const done=setBusy(form.querySelector("button[type='submit']"),"CONFIRMING...");try{const amount=Number(fd.get("rewardBoost"));const currency=form.dataset.currency || "USDC";showToast("CONFIRM FUNDING IN WALLET");const fundingTxHash=await sendRewardPayment(amount,currency,"boost this mission");await api(`/missions/${form.dataset.id}/boost`,{method:"POST",body:JSON.stringify({wallet:state.wallet,amount,currency,fundingTxHash})});closeModal();liveData.admin=null;await refreshRemoteData();renderAdmin();showToast("BOOST CONFIRMED");}catch(error){handleFundingError(error,"Transaction could not be verified");}finally{done();}}
   if(form.id==="admin-extend-form"){try{await api(`/admin/missions/${form.dataset.id}`,{method:"PATCH",body:JSON.stringify({wallet:state.wallet,deadline:deadlineIso(fd)})});closeModal();liveData.admin=null;renderAdmin();showToast("DEADLINE EXTENDED");}catch(error){showToast(error.message);}}
   if(form.id==="admin-remove-form"){try{await api(`/admin/missions/${form.dataset.id}`,{method:"PATCH",body:JSON.stringify({wallet:state.wallet,status:"REMOVED",reason:fd.get("reason")})});closeModal();liveData.admin=null;renderAdmin();showToast("MISSION REMOVED");}catch(error){showToast(error.message);}}
   if(form.id==="admin-note-form"){try{await api(`/admin/users/${form.dataset.user}/notes`,{method:"POST",body:JSON.stringify({wallet:state.wallet,note:fd.get("note")})});liveData.adminUser=null;renderAdminUsers(form.dataset.user);showToast("NOTE SAVED");}catch(error){showToast(error.message);}}
   if(form.id==="agent-register-form"){try{await api("/agents/register",{method:"POST",body:JSON.stringify({wallet:state.wallet,name:fd.get("name"),handle:fd.get("handle"),category:fd.get("category"),avatarUrl:fd.get("avatarUrl"),website:fd.get("website"),xHandle:fd.get("xHandle"),bio:fd.get("bio")})});liveData.agents=null;await refreshRemoteData();showToast("AGENT REGISTERED // AWAITING ADMIN APPROVAL");navigate("/agents");}catch(error){showToast(error.message);}}
-  if(form.id==="create-form"){const done=setBusy(form.querySelector("button[type='submit']"),"FUNDING...");try{const rewardCurrency=fd.get("rewardCurrency");const reward=Number(fd.get("reward"));showToast("CONFIRM FUNDING IN WALLET");const fundingTxHash=await sendRewardPayment(reward,rewardCurrency,"fund this mission");await api("/missions",{method:"POST",body:JSON.stringify({wallet:state.wallet,title:fd.get("title").toUpperCase(),category:fd.get("category"),agentId:fd.get("agentId"),reward,rewardCurrency,prizePoolAmountSol:rewardCurrency==="SOL"?reward:null,fundingTxHash,rewardWallet:REWARD_WALLET,deadline:deadlineIso(fd),description:fd.get("description"),rules:ensureRules(fd.get("rules").split("\n").filter(Boolean)),proof:fd.get("proof")})});await refreshRemoteData();showToast("REWARD POOL FUNDED // MISSION ACTIVE");navigate("/missions");}catch(error){showToast(error.message || "Transaction cancelled");}finally{done();}}
-  if(form.id==="admin-mission-form"){const done=setBusy(form.querySelector("button[type='submit']"),"FUNDING...");try{const rewardCurrency=fd.get("rewardCurrency");const reward=Number(fd.get("reward"));showToast("CONFIRM FUNDING IN WALLET");const fundingTxHash=await sendRewardPayment(reward,rewardCurrency,"fund this mission");await api("/admin/missions",{method:"POST",body:JSON.stringify({wallet:state.wallet,title:fd.get("title").toUpperCase(),category:fd.get("category"),agentId:fd.get("agentId"),reward,rewardCurrency,fundingTxHash,deadline:deadlineIso(fd),description:fd.get("description"),rules:ensureRules(fd.get("rules").split("\n").filter(Boolean)),proof:fd.get("proof"),featured:fd.get("featured")==="true"})});await refreshRemoteData();liveData.admin=null;showToast("REWARD POOL FUNDED // MISSION ACTIVE");renderAdmin();}catch(error){showToast(error.message || "Transaction cancelled");}finally{done();}}
-  if(form.id==="admin-lazarus-form"){const done=setBusy(form.querySelector("button[type='submit']"),"FUNDING...");try{const rewardCurrency=fd.get("rewardCurrency");const rewardPool=Number(fd.get("rewardPool"));showToast("CONFIRM FUNDING IN WALLET");const fundingTxHash=await sendRewardPayment(rewardPool,rewardCurrency,"fund this Lazarus mission");await api("/admin/lazarus/create-mission",{method:"POST",body:JSON.stringify({wallet:state.wallet,type:fd.get("type"),rewardPool,rewardCurrency,fundingTxHash,description:fd.get("description"),deadlineHours:Number(fd.get("deadlineHours")),featured:fd.get("featured")==="true"})});await refreshRemoteData();liveData.admin=null;showToast("LAZARUS MISSION FUNDED");renderAdmin();}catch(error){showToast(error.message || "Transaction cancelled");}finally{done();}}
+  if(form.id==="create-form"){const done=setBusy(form.querySelector("button[type='submit']"),"FUNDING...");try{const rewardCurrency=fd.get("rewardCurrency");const reward=Number(fd.get("reward"));showToast("CONFIRM FUNDING IN WALLET");const fundingTxHash=await sendRewardPayment(reward,rewardCurrency,"fund this mission");await api("/missions",{method:"POST",body:JSON.stringify({wallet:state.wallet,title:fd.get("title").toUpperCase(),category:fd.get("category"),agentId:fd.get("agentId"),reward,rewardCurrency,prizePoolAmountSol:rewardCurrency==="SOL"?reward:null,fundingTxHash,rewardWallet:REWARD_WALLET,deadline:deadlineIso(fd),description:fd.get("description"),rules:ensureRules(fd.get("rules").split("\n").filter(Boolean)),proof:fd.get("proof")})});await refreshRemoteData();showToast("REWARD POOL FUNDED // MISSION ACTIVE");navigate("/missions");}catch(error){handleFundingError(error,"Transaction cancelled");}finally{done();}}
+  if(form.id==="admin-mission-form"){const done=setBusy(form.querySelector("button[type='submit']"),"FUNDING...");try{const rewardCurrency=fd.get("rewardCurrency");const reward=Number(fd.get("reward"));showToast("CONFIRM FUNDING IN WALLET");const fundingTxHash=await sendRewardPayment(reward,rewardCurrency,"fund this mission");await api("/admin/missions",{method:"POST",body:JSON.stringify({wallet:state.wallet,title:fd.get("title").toUpperCase(),category:fd.get("category"),agentId:fd.get("agentId"),reward,rewardCurrency,fundingTxHash,deadline:deadlineIso(fd),description:fd.get("description"),rules:ensureRules(fd.get("rules").split("\n").filter(Boolean)),proof:fd.get("proof"),featured:fd.get("featured")==="true"})});await refreshRemoteData();liveData.admin=null;showToast("REWARD POOL FUNDED // MISSION ACTIVE");renderAdmin();}catch(error){handleFundingError(error,"Transaction cancelled");}finally{done();}}
+  if(form.id==="admin-lazarus-form"){const done=setBusy(form.querySelector("button[type='submit']"),"FUNDING...");try{const rewardCurrency=fd.get("rewardCurrency");const rewardPool=Number(fd.get("rewardPool"));showToast("CONFIRM FUNDING IN WALLET");const fundingTxHash=await sendRewardPayment(rewardPool,rewardCurrency,"fund this Lazarus mission");await api("/admin/lazarus/create-mission",{method:"POST",body:JSON.stringify({wallet:state.wallet,type:fd.get("type"),rewardPool,rewardCurrency,fundingTxHash,description:fd.get("description"),deadlineHours:Number(fd.get("deadlineHours")),featured:fd.get("featured")==="true"})});await refreshRemoteData();liveData.admin=null;showToast("LAZARUS MISSION FUNDED");renderAdmin();}catch(error){handleFundingError(error,"Transaction cancelled");}finally{done();}}
 });
 if (recoveredRoute && !isFile) history.replaceState({}, "", `${base}${recoveredRoute}`);
 if (new URLSearchParams(location.search).get("x_verified")) showToast("X ACCOUNT VERIFIED");
