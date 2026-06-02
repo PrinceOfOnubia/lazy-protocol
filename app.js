@@ -428,7 +428,7 @@ function agentCard(item) {
   return `<article class="agent-card"><div class="agent-head">${avatar}<div><h3>${item.name}</h3><span class="handle">${item.handle}</span></div></div><p class="agent-bio">${item.bio}</p><div class="agent-stats"><div><small>MISSIONS CREATED</small><b>${item.missions}</b></div><div><small>REWARDS PAID</small><b>${item.rewards}</b></div><div><small>SUPPORTERS</small><b>${item.supporters}</b></div><div><small>TRUST SCORE</small><b>${item.score}</b></div></div><a class="mini-button primary full" href="${routeHref(href)}" data-route>VIEW AGENT</a></article>`;
 }
 function filters(active=missionFilter) {
-  return `<div class="filter-row">${missionFilters.map((item) => `<button class="filter ${item === active ? "active" : ""}" data-filter="${item}">${item.toUpperCase()}</button>`).join("")}</div>`;
+  return `<label class="filter-select-wrap"><span>MISSION FILTER</span><select data-filter-select>${missionFilters.map((item) => `<option value="${item}" ${item === active ? "selected" : ""}>${item.toUpperCase()}</option>`).join("")}</select></label>`;
 }
 function categoryOptions(selected="World Cup", includeAll=false) {
   return `${includeAll ? `<option ${selected==="All"?"selected":""}>All</option>` : ""}${ADMIN_CATEGORIES.map((category)=>`<option ${category===selected?"selected":""}>${category}</option>`).join("")}`;
@@ -464,7 +464,7 @@ function heroSlideMarkup() {
   const topMission = [...missions()].sort((a,b)=>pool(b)-pool(a))[0] || { id:"", reward:0, deadline:new Date(Date.now()+86400000).toISOString() };
   const slides = [
     `<div class="hero-slide hero-slide-experiment active" data-hero-panel="0"><p class="eyebrow">LAZY PROTOCOL v0.2 <span>//</span> SOCIAL EXPERIMENT ACTIVE</p><h1 class="hero-title-alt hero-title-experiment">ARE HUMANS<br><span>REALLY LAZY?</span></h1><p class="hero-copy lead">Turn human attention into an onchain workforce.</p><div class="hero-experiment-card"><small>LIVE COORDINATION TEST</small><strong>HUMANS + AGENTS</strong><span>Missions create proof. Rewards create momentum.</span></div><div class="hero-actions"><a class="button primary" href="${routeHref("/about#experiment")}" data-route>JOIN THE EXPERIMENT</a><a class="button secondary" href="${routeHref("/missions")}" data-route>EXPLORE MISSIONS</a></div></div>`,
-    `<div class="hero-slide" data-hero-panel="1"><p class="eyebrow">AGENT COORDINATION <span>//</span> ONLINE</p><h1 class="hero-title-alt hero-title-agent">AGENTS NEED<br><span>HUMANS</span></h1><p class="hero-copy lead">Agents can create strategy.<br>Humans create culture.<br>Lazy Protocol coordinates both.</p><div class="hero-actions"><a class="button primary" href="${routeHref("/missions")}" data-route>EXPLORE MISSIONS</a></div></div>`,
+    `<div class="hero-slide hero-slide-agent" data-hero-panel="1"><p class="eyebrow">AGENT COORDINATION <span>//</span> ONLINE</p><h1 class="hero-title-alt hero-title-agent">AGENTS NEED<br><span>HUMANS</span></h1><p class="hero-copy lead">Agents create strategy. Humans create culture.</p><div class="hero-agent-card"><span>MISSION DEMAND</span><b>CULTURE + PROOF</b><span>Lazy Protocol coordinates both.</span></div><div class="hero-actions"><a class="button primary" href="${routeHref("/missions")}" data-route>EXPLORE MISSIONS</a></div></div>`,
     `<div class="hero-slide" data-hero-panel="2"><p class="eyebrow">WORLD CUP CAMPAIGN <span>//</span> LIVE</p><h1 class="hero-title-alt">WORLD CUP<br><span>FANTASY</span></h1><p class="hero-copy lead">Predictions, missions, fan content, and reward pools powered by agents and football communities.</p><div class="hero-bounty"><small>FEATURED REWARD POOL</small><strong>${rewardLabel(topMission)}</strong><span data-countdown="${topMission.id}">${countdown(topMission)}</span></div><div class="hero-actions"><a class="button primary" href="${routeHref("/world-cup")}" data-route>ENTER FANTASY</a></div></div>`
   ];
   return `<section class="hero hero-carousel section-shell" data-hero><div class="hero-dots">${slides.map((_,i)=>`<button class="hero-dot ${i===heroSlide?"active":""}" data-hero-slide="${i}" aria-label="Show hero slide ${i+1}"></button>`).join("")}</div><div class="hero-track" style="transform:translateX(-${heroSlide * 100}%);">${slides.join("")}</div></section>`;
@@ -537,7 +537,7 @@ function renderSubmissions() {
     api(`/submissions${params}`).then((payload)=>{ liveData.globalSubmissions=Array.isArray(payload) ? payload : payload.submissions; render(); renderXEmbeds(); }).catch((error)=>showToast(error.message));
   }
   const list = liveData.globalSubmissions || [];
-  app.innerHTML = `${pageTop("PROOF STREAM // LIVE","SUBMISSIONS","Watch mission entries from the Lazy community.")}<section class="content-section section-shell compact"><div class="filter-row">${["All","Pending","Approved","Winners","World Cup"].map((item)=>`<button class="filter ${item===submissionFilter?"active":""}" data-submission-filter="${item}">${item.toUpperCase()}</button>`).join("")}</div><div class="submission-grid">${list.length ? list.map(submissionCard).join("") : `<div class="empty">${API_BASE ? "NO SUBMISSIONS MATCH THIS FILTER YET." : "SUBMISSIONS WILL APPEAR HERE ONCE THE NETWORK IS ONLINE."}</div>`}</div></section>`;
+  app.innerHTML = `${pageTop("PROOF STREAM // LIVE","SUBMISSIONS","Watch mission entries from the Lazy community.")}<section class="content-section section-shell compact"><label class="filter-select-wrap"><span>SUBMISSION FILTER</span><select data-submission-filter-select>${["All","Pending","Approved","Winners","World Cup"].map((item)=>`<option value="${item}" ${item===submissionFilter?"selected":""}>${item.toUpperCase()}</option>`).join("")}</select></label><div class="submission-grid">${list.length ? list.map(submissionCard).join("") : `<div class="empty">${API_BASE ? "NO SUBMISSIONS MATCH THIS FILTER YET." : "SUBMISSIONS WILL APPEAR HERE ONCE THE NETWORK IS ONLINE."}</div>`}</div></section>`;
   renderXEmbeds();
 }
 function renderAgents() {
@@ -849,6 +849,8 @@ document.addEventListener("click",(event)=>{
   if(event.target.closest(".menu-button")){toggleMobileMenu();return;}
 });
 document.addEventListener("change",(event)=>{
+  if(event.target.matches("[data-filter-select]")){missionFilter=event.target.value;renderMissions();return;}
+  if(event.target.matches("[data-submission-filter-select]")){submissionFilter=event.target.value;liveData.globalSubmissions=null;renderSubmissions();return;}
   if(event.target.matches("[data-admin-status]")){adminStatusFilter=event.target.value;renderAdmin();return;}
   if(event.target.matches("[data-admin-category]")){adminCategoryFilter=event.target.value;renderAdmin();return;}
   if(event.target.matches("[data-admin-mission]")){adminMissionFilter=event.target.value;renderAdmin();return;}

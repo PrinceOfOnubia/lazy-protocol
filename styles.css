@@ -55,9 +55,10 @@ button { cursor: pointer; }
 .hero-title-agent { max-width: 980px; font-size: clamp(88px, 11.4vw, 166px); }
 .hero-title-alt span { color: transparent; -webkit-text-stroke: 2px var(--cream); }
 .hero-bounty, .hero-agent-card { display: grid; gap: 8px; min-width: min(560px, calc(100vw - 48px)); margin: 24px 0 34px; padding: 24px; border: 1px solid rgba(232,225,213,.14); background: rgba(8,9,9,.72); box-shadow: 0 0 36px rgba(239,70,61,.12); }
+.hero-bounty { min-width: min(460px, calc(100vw - 48px)); margin: 18px 0 26px; padding: 18px 20px; }
 .hero-bounty small, .hero-agent-card span { color: var(--muted); font-size: 9px; letter-spacing: 2px; }
-.hero-bounty strong { color: #ff6a31; font-family: var(--display); font-size: clamp(58px, 8vw, 92px); line-height: 1; text-shadow: 0 0 22px rgba(216,74,32,.24); }
-.hero-bounty span { color: var(--cream); font-size: 24px; letter-spacing: 4px; }
+.hero-bounty strong { color: #ff6a31; font-family: var(--display); font-size: clamp(48px, 6.2vw, 72px); line-height: 1; text-shadow: 0 0 22px rgba(216,74,32,.24); }
+.hero-bounty span { color: var(--cream); font-size: 21px; letter-spacing: 3px; }
 .hero-agent-card b { color: var(--cream); font-family: var(--display); font-size: clamp(52px, 7vw, 82px); line-height: .92; letter-spacing: 1px; }
 .hero-experiment-card { display: grid; gap: 8px; min-width: min(560px, calc(100vw - 48px)); margin: 22px 0 30px; padding: 20px 24px; border: 1px solid rgba(239,70,61,.28); background: linear-gradient(135deg, rgba(145,30,24,.16), rgba(8,9,9,.82)); box-shadow: 0 0 38px rgba(239,70,61,.14); }
 .hero-experiment-card small { color: var(--red); font-size: 9px; letter-spacing: 2.5px; }
@@ -103,6 +104,10 @@ h2 { margin-bottom: 0; font-family: var(--display); font-size: clamp(44px, 7vw, 
 .filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
 .filter, .leader-tab { border: 1px solid rgba(232,225,213,.16); background: #0b0c0c; color: var(--muted); padding: 10px 14px; font-size: 9px; letter-spacing: 1px; }
 .filter.active, .filter:hover, .leader-tab.active, .leader-tab:hover { border-color: var(--red); color: var(--red); background: rgba(145,30,24,.14); }
+.filter-select-wrap { display: grid; gap: 8px; width: min(440px, 100%); margin: 0 0 24px; }
+.filter-select-wrap span { color: var(--red); font-size: 9px; letter-spacing: 2px; }
+.filter-select-wrap select { width: 100%; min-height: 48px; padding: 0 14px; border: 1px solid rgba(239,70,61,.36); border-radius: 0; background: rgba(8,9,9,.84); color: var(--cream); font-family: var(--mono); font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; outline: none; }
+.filter-select-wrap select:focus { border-color: var(--red); box-shadow: 0 0 18px rgba(239,70,61,.16); }
 .mission-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .mission-card { min-height: 398px; padding: 20px; border: 1px solid rgba(232,225,213,.13); background: linear-gradient(145deg, rgba(22,19,18,.96), rgba(9,10,10,.95)); position: relative; transition: .2s; clip-path: polygon(0 0, 93% 0, 100% 8%, 100% 100%, 0 100%); }
 .mission-card.featured { grid-column: span 2; min-height: 386px; padding: 24px; background: linear-gradient(125deg, rgba(28,20,18,.98), rgba(9,10,10,.96)); box-shadow: inset 0 0 46px rgba(239,70,61,.035); }
