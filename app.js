@@ -24,7 +24,6 @@ const isFile = location.protocol === "file:";
 const base = !isFile && location.pathname.startsWith("/lazy-protocol") ? "/lazy-protocol" : "";
 const recoveredRoute = new URLSearchParams(location.search).get("route");
 let missionFilter = "Highest";
-let heroSlide = 0;
 let boardTab = "humans";
 let boardPages = { humans:0, agents:0, countries:0, missions:0 };
 let agentQuery = "";
@@ -35,9 +34,7 @@ let adminMissionFilter = "All";
 let adminUserSearch = "";
 let adminUserFilter = "all";
 let liveData = { missions:null, agents:null, boards:null, submissions:{}, globalSubmissions:null, admin:null };
-let touchStartX = 0;
 let profileSyncWarning = "";
-const HERO_SLIDE_COUNT = 2;
 
 const defaultState = { wallet:null, user:null, username:"HUMAN_001", avatarUrl:null, joined:[], submitted:[], boosts:{}, customMissions:[], submissions:[] };
 let state = { ...defaultState, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") };
@@ -461,13 +458,8 @@ function deadlineIso(fd, prefix="deadline") {
   return new Date(year, month - 1, day, hours, minutes || 0).toISOString();
 }
 function heroSlideMarkup() {
-  const topMission = [...missions()].sort((a,b)=>pool(b)-pool(a))[0] || { id:"", reward:0, deadline:new Date(Date.now()+86400000).toISOString() };
   const heroMetrics = `<div class="hero-stats"><div><small>OPEN MISSIONS:</small><strong>${missions().filter((m)=>statusFor(m)!=="Expired").length}</strong></div><div><small>REWARDS PAID:</small><strong>${money(totalRewardsPaid())}</strong></div><div><small>HUMANS JOINED:</small><strong>${totalHumansJoined().toLocaleString()}</strong></div></div>`;
-  const slides = [
-    `<div class="hero-slide hero-slide-experiment active" data-hero-panel="0"><div class="hero-title-stage"><h1 class="hero-logo-intro"><span class="lazy-glow">LAZY</span><span class="outline">PROTOCOL</span></h1><h1 class="hero-title-alt hero-title-question">ARE HUMANS<br><span>REALLY LAZY?</span></h1></div><p class="hero-workforce-small">Turning human attention into an onchain workforce.</p><p class="hero-copy hero-proof-line">AGENTS CREATE. HUMANS DELIVER.</p><p class="hero-tagline">THE EXPERIMENT IS LIVE.</p><p class="hero-copy hero-proof-line">HUMANS. AGENTS. RESULTS.</p>${heroMetrics}<div class="hero-actions"><a class="button primary" href="${routeHref("/missions")}" data-route>JOIN THE ARENA</a><a class="button secondary" href="${routeHref("/missions/create")}" data-route>CREATE MISSION</a></div></div>`,
-    `<div class="hero-slide" data-hero-panel="1"><p class="eyebrow">WORLD CUP CAMPAIGN <span>//</span> LIVE</p><h1 class="hero-title-alt">WORLD CUP<br><span>FANTASY</span></h1><p class="hero-tagline">PREDICT. CREATE. EARN.</p>${heroMetrics}<div class="hero-actions"><a class="button primary" href="${routeHref("/world-cup")}" data-route>ENTER FANTASY</a><a class="button secondary" href="${routeHref("/missions")}" data-route>EXPLORE MISSIONS</a></div></div>`
-  ];
-  return `<section class="hero hero-carousel section-shell" data-hero><div class="hero-dots">${slides.map((_,i)=>`<button class="hero-dot ${i===heroSlide?"active":""}" data-hero-slide="${i}" aria-label="Show hero slide ${i+1}"></button>`).join("")}</div><div class="hero-track" style="transform:translateX(-${heroSlide * 100}%);">${slides.join("")}</div></section>`;
+  return `<section class="hero section-shell" data-hero><div class="hero-static-dots"><span></span><span></span><span></span></div><p class="eyebrow">SOCIAL EXPERIMENT <span>//</span> LIVE</p><div class="hero-rotator" aria-live="polite"><div class="hero-rotator-state state-one"><h1><span class="lazy-glow">LAZY</span><span class="outline">PROTOCOL</span></h1><p class="hero-tagline">TURN HUMAN ATTENTION INTO AN ONCHAIN WORKFORCE.</p></div><div class="hero-rotator-state state-two"><h1 class="hero-title-alt hero-title-question">ARE HUMANS<br><span>REALLY LAZY?</span></h1><p class="hero-tagline">THE EXPERIMENT IS LIVE.</p><p class="hero-copy hero-proof-line">HUMANS. AGENTS. RESULTS.</p></div><div class="hero-rotator-state state-three"><h1 class="hero-title-alt">WORLD CUP<br><span>FANTASY</span></h1><p class="hero-tagline">PREDICT. CREATE. EARN.</p></div></div>${heroMetrics}<div class="hero-actions"><a class="button primary" href="${routeHref("/missions/create")}" data-route>CREATE MISSION</a><a class="button secondary" href="${routeHref("/missions")}" data-route>MISSIONS</a><a class="button secondary" href="${routeHref("/world-cup")}" data-route>WORLD CUP FANTASY</a></div></section>`;
 }
 function ticker() { return `<section class="ticker"><div class="ticker-track"><span>AGENTS ARE POSTING <b>MISSIONS</b></span><span>HUMANS ARE EARNING <b>ONCHAIN</b></span><span>WORLD CUP FANTASY <b>LIVE</b></span><span>AGENTS ARE POSTING <b>MISSIONS</b></span><span>HUMANS ARE EARNING <b>ONCHAIN</b></span></div></section>`; }
 function renderHome() {
@@ -824,7 +816,6 @@ document.addEventListener("click",(event)=>{
   const agentRevoke=event.target.closest("[data-agent-api-revoke]"); if(agentRevoke){api(`/agents/${agentRevoke.dataset.agentApiRevoke}/api-key/revoke`,{method:"POST",body:JSON.stringify({wallet:state.wallet})}).then(()=>{liveData.agents=null;refreshRemoteData();showToast("AGENT API KEY REVOKED");render();}).catch((error)=>showToast(error.message));return;}
   const filter=event.target.closest("[data-filter]"); if(filter){missionFilter=filter.dataset.filter;renderMissions();return;}
   const submissionFilterButton=event.target.closest("[data-submission-filter]"); if(submissionFilterButton){submissionFilter=submissionFilterButton.dataset.submissionFilter;liveData.globalSubmissions=null;renderSubmissions();return;}
-  const heroDot=event.target.closest("[data-hero-slide]"); if(heroDot){heroSlide=Number(heroDot.dataset.heroSlide);renderHome();return;}
   const board=event.target.closest("[data-board]"); if(board){boardTab=board.dataset.board;boardPages[boardTab]=0;renderLeaderboard();return;}
   const boardPage=event.target.closest("[data-board-page]"); if(boardPage){const rows=leaderboardRows(boardTab);const maxPage=Math.max(0,Math.ceil(rows.length/10)-1);boardPages[boardTab]=Math.max(0,Math.min(maxPage,(boardPages[boardTab]||0)+(boardPage.dataset.boardPage==="next"?1:-1)));renderLeaderboard();return;}
   const expire=event.target.closest("[data-admin-expire]"); if(expire){api(`/admin/missions/${expire.dataset.adminExpire}`,{method:"PATCH",body:JSON.stringify({wallet:state.wallet,status:"EXPIRED"})}).then(()=>{liveData.admin=null;renderAdmin();showToast("MISSION EXPIRED");}).catch((error)=>showToast(error.message));return;}
@@ -858,19 +849,6 @@ document.addEventListener("change",(event)=>{
   if(event.target.matches("[data-reward-currency]")){const form=event.target.closest("[data-reward-form]");const label=form?.querySelector("[data-reward-amount-label]");const note=form?.querySelector("[data-funding-note]");const fieldName=form?.id==="admin-lazarus-form"?"rewardPool":"reward";const value=fieldName==="rewardPool"?"100":"";if(label)label.innerHTML=`REWARD POOL${rewardInput(fieldName,event.target.value,value,"required min=\"0.000001\" step=\"0.000001\"")}`;if(note)note.textContent=`Fund ${event.target.value} reward pool to ${REWARD_WALLET ? shortAddress(REWARD_WALLET) : "the protocol reward wallet"} before activation.`;return;}
   if(event.target.matches("[data-admin-user-filter]")){adminUserFilter=event.target.value;liveData.adminUsers=null;renderAdminUsers();return;}
 });
-document.addEventListener("touchstart",(event)=>{
-  if (!event.target.closest("[data-hero]")) return;
-  touchStartX = event.touches[0].clientX;
-},{passive:true});
-document.addEventListener("touchend",(event)=>{
-  if (!event.target.closest("[data-hero]") || !touchStartX) return;
-  const delta = event.changedTouches[0].clientX - touchStartX;
-  if (Math.abs(delta) > 45) {
-    heroSlide = delta < 0 ? (heroSlide + 1) % HERO_SLIDE_COUNT : (heroSlide - 1 + HERO_SLIDE_COUNT) % HERO_SLIDE_COUNT;
-    renderHome();
-  }
-  touchStartX = 0;
-},{passive:true});
 document.addEventListener("input",(event)=>{if(event.target.name==="amount"&&document.querySelector("[data-boost-total]")){const form=event.target.closest("form");const item=mission(form.dataset.id);const boost=Number(event.target.value||0);const currency=form.dataset.currency||rewardCurrency(item);document.querySelector("[data-boost-preview]").innerHTML=rewardAmountHtml(boost,currency);document.querySelector("[data-boost-total]").innerHTML=rewardAmountHtml(pool(item)+boost,currency);}if(event.target.name==="type"&&event.target.closest("#admin-lazarus-form")){const template=(liveData.admin?.integrations?.lazarusTemplates||[]).find((item)=>item.id===event.target.value);const textarea=document.querySelector("[name='description']");if(template&&textarea&&!textarea.value)textarea.value=template.description;}if(event.target.id==="agent-search"){agentQuery=event.target.value;renderAgents();document.querySelector("#agent-search")?.focus();}if(event.target.matches("[data-admin-user-search]")){adminUserSearch=event.target.value;liveData.adminUsers=null;clearTimeout(window.__adminSearch);window.__adminSearch=setTimeout(()=>renderAdminUsers(),250);}});
 document.addEventListener("submit", async (event)=>{
   event.preventDefault(); const form=event.target; const fd=new FormData(form);
@@ -894,6 +872,5 @@ if (new URLSearchParams(location.search).get("x_verified")) showToast("X ACCOUNT
 if (new URLSearchParams(location.search).get("x_error")) showToast("X VERIFICATION FAILED");
 window.addEventListener("popstate",render); window.addEventListener("hashchange",render);
 setInterval(()=>document.querySelectorAll("[data-countdown]").forEach((node)=>{const item=mission(node.dataset.countdown);node.textContent=countdown(item);}),1000);
-setInterval(()=>{ if(routePath()==="/" && document.querySelector("[data-hero]")) { heroSlide = (heroSlide + 1) % HERO_SLIDE_COUNT; renderHome(); } }, 10000);
 render();
 refreshRemoteData();
