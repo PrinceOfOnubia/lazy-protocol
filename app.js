@@ -94,6 +94,36 @@ function avatarMarkup(size="large") {
   const label = (state.user?.username || state.username || "H").slice(0,1);
   return image ? `<img class="profile-avatar ${size}" src="${image}" alt="Profile picture">` : `<div class="profile-avatar generated ${size}" style="--avatar-hue:${hue}">${label}</div>`;
 }
+function profileAvatarPickerMarkup() {
+  return `<button class="profile-avatar-button" type="button" data-edit-profile-avatar aria-label="Upload profile picture">${avatarMarkup()}</button>`;
+}
+function resizeProfileImage(file) {
+  return new Promise((resolve, reject) => {
+    if (!file?.type?.startsWith("image/")) return reject(new Error("Choose an image file."));
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        const max = 512;
+        const scale = Math.min(1, max / Math.max(image.naturalWidth, image.naturalHeight));
+        const width = Math.max(1, Math.round(image.naturalWidth * scale));
+        const height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+        context.fillStyle = "#080909";
+        context.fillRect(0, 0, width, height);
+        context.drawImage(image, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.86));
+      };
+      image.onerror = () => reject(new Error("That image could not be loaded."));
+      image.src = reader.result;
+    };
+    reader.onerror = () => reject(new Error("That image could not be read."));
+    reader.readAsDataURL(file);
+  });
+}
 function verifiedX() { return state.user?.xVerified && state.user?.xHandle; }
 function ensureRules(rules=[]) { return rules.includes(LAZY_X_RULE) ? rules : [...rules, LAZY_X_RULE]; }
 function agentAvatarMarkup(item, size="") {
@@ -622,7 +652,7 @@ function renderProfile() {
   const xStatus = verifiedX() ? `X VERIFIED <b>@${state.user.xHandle}</b>` : `X NOT CONNECTED <b>REQUIRED ONLY FOR SUBMISSIONS</b>`;
   const xButton = verifiedX() ? `<button class="button secondary" disabled>@${state.user.xHandle}</button>` : `<button class="button secondary" data-connect-x>CONNECT X</button>`;
   const syncNotice = profileSyncWarning ? `<p class="joined-note">${profileSyncWarning}</p>` : "";
-  app.innerHTML=`<section class="agent-profile-strip"><div class="section-shell"><p class="eyebrow">HUMAN PROFILE // ACTIVE</p><article class="panel agent-profile-card user-profile-card">${avatarMarkup()}<div><h2>${state.user?.username || state.username}</h2><span class="handle">${shortWallet()}</span><p class="profile-line">CONNECTED WALLET <b>${state.wallet}</b></p><p class="profile-line">${xStatus}</p>${syncNotice}<div class="action-row"><button class="button primary" data-edit-profile>EDIT PROFILE</button>${xButton}</div></div></article></div></section><section class="section-shell profile-stats"><div><small>MISSIONS JOINED</small><b>${state.user?.missionsJoined ?? joined.length}</b></div><div><small>SUBMISSIONS</small><b>${state.user?.submissions ?? submitted.length}</b></div><div><small>REWARDS EARNED</small><b>${rewardAmountHtml(state.user?.rewardsEarned ?? 0,"USDC")}</b></div><div><small>BOOSTED MISSIONS</small><b>${state.user?.boostedMissions ?? boosted.length}</b></div></section>${profileGroup("ACTIVE MISSIONS",joined)}${profileGroup("SUBMITTED MISSIONS",submitted)}${profileGroup("BOOSTED MISSIONS",boosted)}`;
+  app.innerHTML=`<section class="agent-profile-strip"><div class="section-shell"><p class="eyebrow">HUMAN PROFILE // ACTIVE</p><article class="panel agent-profile-card user-profile-card">${profileAvatarPickerMarkup()}<div><h2>${state.user?.username || state.username}</h2><span class="handle">${shortWallet()}</span><p class="profile-line">CONNECTED WALLET <b>${state.wallet}</b></p><p class="profile-line">${xStatus}</p>${syncNotice}<div class="action-row"><button class="button primary" data-edit-profile>EDIT PROFILE</button>${xButton}</div></div></article></div></section><section class="section-shell profile-stats"><div><small>MISSIONS JOINED</small><b>${state.user?.missionsJoined ?? joined.length}</b></div><div><small>SUBMISSIONS</small><b>${state.user?.submissions ?? submitted.length}</b></div><div><small>REWARDS EARNED</small><b>${rewardAmountHtml(state.user?.rewardsEarned ?? 0,"USDC")}</b></div><div><small>BOOSTED MISSIONS</small><b>${state.user?.boostedMissions ?? boosted.length}</b></div></section>${profileGroup("ACTIVE MISSIONS",joined)}${profileGroup("SUBMITTED MISSIONS",submitted)}${profileGroup("BOOSTED MISSIONS",boosted)}`;
 }
 function profileGroup(title,list){return `<section class="content-section section-shell compact"><div class="section-heading"><h2>${title}</h2></div>${list.length?`<div class="mission-grid">${list.map((item)=>missionCard(item)).join("")}</div>`:`<div class="empty">NO ${title.toLowerCase()} YET.</div>`}</section>`;}
 function renderCreate() {
@@ -794,7 +824,11 @@ function openWallet(){
 function openBoost(id){ const item=mission(id); const currency=rewardCurrency(item); modal(`<p class="eyebrow">REWARD SIGNAL</p><h2>BOOST REWARD</h2><div class="boost-mission-summary"><small>MISSION</small><strong>${item.title}</strong><span>CURRENT POOL: ${rewardLabel(item)}</span></div><form id="boost-form" data-id="${id}" data-currency="${currency}"><label>BOOST CURRENCY<select name="currency" data-payment-currency>${currencyOptions(currency)}</select></label><label data-payment-amount-label>AMOUNT TO BOOST (${currency})${rewardInput("amount",currency,"","required min=\"0.000001\" step=\"0.000001\"")}</label><div class="boost-total triple"><span>CURRENT POOL <b>${rewardLabel(item)}</b></span><span>YOUR BOOST <b data-boost-preview>${rewardAmountHtml(0,currency)}</b></span><span>NEW POOL <b data-boost-total>${boostTotalHtml(item,0,currency)}</b></span></div><p class="boost-confirm-line">You are about to boost <b data-boost-preview-inline>${rewardAmountHtml(0,currency)}</b> into this mission.</p><button class="button primary full-width" type="submit">CONFIRM BOOST</button></form>`); }
 function openSubmit(id){ const item=mission(id); if(!verifiedX()) return openConnectX("Connect X to verify this submission belongs to you."); modal(`<p class="eyebrow">PROOF CONSOLE // ${item.title}</p><h2>SUBMIT ATTEMPT</h2><p>Your submitted X post must belong to @${state.user.xHandle} and tag @LazyProtocol. Ownership checks confirm the proof before it enters review.</p><form id="submit-form" data-id="${id}"><label>SUBMISSION TITLE<input required name="title"></label><label>DESCRIPTION<textarea required name="description"></textarea></label><label>UPLOAD / PROOF LINK<input required type="url" name="proof" placeholder="https://"></label><label>X POST LINK FROM @${state.user.xHandle}<input required type="url" name="x" placeholder="https://x.com/${state.user.xHandle}/status/..."></label><label>OPTIONAL IMAGE / VIDEO URL<input type="url" name="media"></label><button class="button primary" type="submit">SUBMIT ATTEMPT</button></form>`); }
 function openConnectX(message="Connect X to verify this submission belongs to you."){ modal(`<p class="eyebrow">X VERIFICATION</p><h2>CONNECT X ACCOUNT</h2><p>${message}</p><p>X is only used for submission ownership checks. It is not required for your profile, browsing, joining, or boosting.</p><button class="button primary full-width" data-start-x>CONNECT X ACCOUNT</button>`); }
-function openEdit(){ modal(`<p class="eyebrow">PROFILE CONSOLE</p><h2>EDIT PROFILE</h2><form id="edit-form"><label>USERNAME<input required name="username" value="${state.username}"></label><label>AVATAR IMAGE URL<input name="avatarUrl" value="${state.user?.avatarUrl || state.avatarUrl || ""}" placeholder="https://..."></label><button class="button primary" type="submit">SAVE PROFILE</button></form>`); }
+function openEdit(openPicker=false){
+  const avatarUrl = state.user?.avatarUrl || state.avatarUrl || "";
+  modal(`<p class="eyebrow">PROFILE CONSOLE</p><h2>EDIT PROFILE</h2><form id="edit-form"><label>USERNAME<input required name="username" value="${state.username}"></label><div class="avatar-upload"><button class="profile-avatar-button edit-preview" type="button" data-profile-avatar-pick aria-label="Choose profile picture">${avatarMarkup()}</button><div><p class="profile-line">PROFILE PICTURE <b>CLICK AVATAR TO CHOOSE IMAGE</b></p><div class="action-row"><button class="mini-button primary" type="button" data-profile-avatar-pick>CHOOSE IMAGE</button>${avatarUrl ? `<button class="mini-button quiet" type="button" data-profile-avatar-remove>REMOVE</button>` : ""}</div></div></div><input type="file" accept="image/*" data-avatar-file hidden><input type="hidden" name="avatarUrl" value="${avatarUrl}"><button class="button primary" type="submit">SAVE PROFILE</button></form>`);
+  if (openPicker) document.querySelector("[data-avatar-file]")?.click();
+}
 function openAdminDisqualify(id){ modal(`<p class="eyebrow">ADMIN MODERATION</p><h2>DISQUALIFY SUBMISSION</h2><form id="admin-disqualify-form" data-id="${id}"><label>REASON<input required name="reason" placeholder="Fraudulent or invalid entry"></label><label>OPTIONAL NOTE<textarea name="note" placeholder="Internal admin note"></textarea></label><button class="button primary" type="submit">DISQUALIFY</button></form>`); }
 function openAdminPay(id){ const s=(liveData.admin?.submissions||[]).find((item)=>item.id===id); if(!s)return; const currency=s.payoutCurrency || "USDC"; modal(`<p class="eyebrow">PAYOUT OPERATIONS</p><h2>PROCESS PAYOUT</h2><p>Confirm payout details, add a reference for records, and mark the winner as paid.</p><form id="admin-pay-form" data-id="${id}" data-currency="${currency}"><label>WINNER WALLET<input required name="payoutWallet" value="${s.payoutWallet || s.submitterWallet || ""}"></label><label>PAYOUT CURRENCY<select name="payoutCurrency" data-payment-currency>${currencyOptions(currency)}</select></label><label data-payment-amount-label>PAYOUT AMOUNT (${currency})${rewardInput("payoutAmount",currency,s.payoutAmount||"","required min=\"0.000000001\" step=\"0.000000001\"")}</label><label>PAYOUT REFERENCE<input required name="payoutTxHash" value="${s.payoutTxHash || ""}" placeholder="Payment reference"></label><label>PAYOUT NOTE<textarea name="payoutNote">${s.payoutNote || ""}</textarea></label><div class="action-row"><button class="button secondary" type="button" data-copy="${s.payoutWallet || s.submitterWallet || ""}">COPY WALLET</button><button class="button secondary" type="button" data-copy="${s.payoutAmount || ""}">COPY AMOUNT</button></div><button class="button primary" type="submit">MARK PAID</button></form>`); }
 function openAdminMissionModal(id,type){ const item=(liveData.admin?.missions||[]).find((mission)=>mission.id===id); const currency=item?.rewardCurrency || "USDC"; const labels={boost:["BOOST REWARD","admin-boost-form","rewardBoost","Amount to add"],extend:["EXTEND DEADLINE","admin-extend-form","deadline","New deadline"],remove:["REMOVE MISSION","admin-remove-form","reason","Removal reason"]}; const [title,form,field,label]=labels[type]; const input=type==="boost"?`<label>BOOST CURRENCY<select name="currency" data-payment-currency>${currencyOptions(currency)}</select></label><label data-payment-amount-label>${label} (${currency})${rewardInput(field,currency,"","required min=\"0.000001\" step=\"0.000001\"")}</label>`:type==="extend"?deadlineFields():`<textarea required name="${field}"></textarea>`; modal(`<p class="eyebrow">ADMIN MISSION OPS</p><h2>${title}</h2><form id="${form}" data-id="${id}" data-currency="${currency}">${type==="boost"?input:`<label>${label}${input}</label>`}<button class="button primary" type="submit">${type==="boost"?"CONFIRM FUNDING":"CONFIRM"}</button></form>`); }
@@ -907,9 +941,13 @@ document.addEventListener("click",(event)=>{
   const copy=event.target.closest("[data-copy]"); if(copy){navigator.clipboard?.writeText(copy.dataset.copy||"");copy.textContent="COPIED";showToast("COPIED");return;}
   const exportBtn=event.target.closest("[data-export]"); if(exportBtn){exportAdminCsv(exportBtn.dataset.export);return;}
   if(event.target.closest("[data-edit-profile]"))return openEdit();
+  if(event.target.closest("[data-edit-profile-avatar]"))return openEdit(true);
+  if(event.target.closest("[data-profile-avatar-pick]")){document.querySelector("[data-avatar-file]")?.click();return;}
+  if(event.target.closest("[data-profile-avatar-remove]")){const form=document.querySelector("#edit-form");if(!form)return;form.querySelector("[name='avatarUrl']").value="";form.querySelector(".edit-preview").innerHTML=`<div class="profile-avatar generated large" style="--avatar-hue:${avatarSeed() % 360}">${(form.querySelector("[name='username']")?.value || state.username || "H").slice(0,1)}</div>`;event.target.remove();return;}
   if(event.target.closest(".menu-button")){toggleMobileMenu();return;}
 });
 document.addEventListener("change",(event)=>{
+  if(event.target.matches("[data-avatar-file]")){const file=event.target.files?.[0];if(!file)return;resizeProfileImage(file).then((avatarUrl)=>{const form=event.target.closest("form");form.querySelector("[name='avatarUrl']").value=avatarUrl;form.querySelector(".edit-preview").innerHTML=`<img class="profile-avatar large" src="${avatarUrl}" alt="Profile picture preview">`;if(!form.querySelector("[data-profile-avatar-remove]"))form.querySelector(".avatar-upload .action-row").insertAdjacentHTML("beforeend",`<button class="mini-button quiet" type="button" data-profile-avatar-remove>REMOVE</button>`);showToast("PROFILE IMAGE READY");}).catch((error)=>showToast(error.message));return;}
   if(event.target.matches("[data-filter-select]")){missionFilter=event.target.value;renderMissions();return;}
   if(event.target.matches("[data-submission-filter-select]")){submissionFilter=event.target.value;liveData.globalSubmissions=null;renderSubmissions();return;}
   if(event.target.matches("[data-admin-status]")){adminStatusFilter=event.target.value;renderAdmin();return;}
