@@ -41,6 +41,7 @@ const defaultState = { wallet:null, user:null, username:"HUMAN_001", avatarUrl:n
 let state = { ...defaultState, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") };
 if (state.wallet === "7xLP4nA9sQeK2vR8YzT6mWc3JfH5uB1p") state.wallet = null;
 let activeWallet = null;
+let adminProof = null;
 function signerError(currency="SOL") {
   const error = new Error(`Reconnect your Solana wallet to approve the ${currency} transfer.`);
   error.requiresWalletReconnect = true;
@@ -60,9 +61,14 @@ async function sendViaInjectedProvider(provider, transaction) {
   const raw = signed.serialize();
   return solanaConnection.sendRawTransaction(raw);
 }
+async function signViaInjectedProvider(provider, message) {
+  if (!provider.signMessage) throw new Error("Reconnect with a wallet that supports message signing for admin access.");
+  const result = await provider.signMessage(message, "utf8");
+  return result?.signature || result;
+}
 const injectedWallets = [
-  { key:"backpack", name:"Backpack", ready:()=>installed(()=>window.backpack?.solana), connect:async()=>{const provider=window.backpack.solana;const response=await provider.connect();return { publicKey: response?.publicKey || provider.publicKey, disconnect:()=>provider.disconnect?.(), sendTransaction:(transaction)=>sendViaInjectedProvider(provider, transaction) };}},
-  { key:"glow", name:"Glow", ready:()=>installed(()=>window.glowSolana || window.glow?.solana), connect:async()=>{const provider=window.glowSolana || window.glow.solana;const response=await provider.connect();return { publicKey: response?.publicKey || provider.publicKey, disconnect:()=>provider.disconnect?.(), sendTransaction:(transaction)=>sendViaInjectedProvider(provider, transaction) };}},
+  { key:"backpack", name:"Backpack", ready:()=>installed(()=>window.backpack?.solana), connect:async()=>{const provider=window.backpack.solana;const response=await provider.connect();return { publicKey: response?.publicKey || provider.publicKey, disconnect:()=>provider.disconnect?.(), sendTransaction:(transaction)=>sendViaInjectedProvider(provider, transaction), signMessage:(message)=>signViaInjectedProvider(provider, message) };}},
+  { key:"glow", name:"Glow", ready:()=>installed(()=>window.glowSolana || window.glow?.solana), connect:async()=>{const provider=window.glowSolana || window.glow.solana;const response=await provider.connect();return { publicKey: response?.publicKey || provider.publicKey, disconnect:()=>provider.disconnect?.(), sendTransaction:(transaction)=>sendViaInjectedProvider(provider, transaction), signMessage:(message)=>signViaInjectedProvider(provider, message) };}},
 ];
 const adapterWallets = [
   { key:"phantom", name:"Phantom", adapter:new PhantomWalletAdapter() },
@@ -71,6 +77,23 @@ const adapterWallets = [
 ];
 
 function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function bytesToBase64(bytes) {
+  const binary = Array.from(bytes, (byte)=>String.fromCharCode(byte)).join("");
+  return btoa(binary);
+}
+async function adminAuthHeaders() {
+  if (!state.wallet) throw new Error("Connect an admin wallet first.");
+  if (!activeWallet?.signMessage) throw new Error("Reconnect your wallet to sign admin access.");
+  if (adminProof?.wallet === state.wallet && adminProof.expiresAt > Date.now() + 30000) {
+    return { "x-admin-message": adminProof.message, "x-admin-signature": adminProof.signature };
+  }
+  const timestamp = new Date().toISOString();
+  const message = `Lazy Protocol Admin Access\nWallet: ${state.wallet}\nTimestamp: ${timestamp}`;
+  const signatureBytes = await activeWallet.signMessage(new TextEncoder().encode(message));
+  const signature = typeof signatureBytes === "string" ? signatureBytes : bytesToBase64(signatureBytes);
+  adminProof = { wallet: state.wallet, message, signature, expiresAt: Date.now() + 4 * 60 * 1000 };
+  return { "x-admin-message": message, "x-admin-signature": signature };
+}
 function money(value) { return `$${Number(value).toLocaleString()}`; }
 function sol(value) { return `${Number(value).toLocaleString(undefined,{ maximumFractionDigits: 4 })} SOL`; }
 function rewardCurrency(item={}) { return item.rewardCurrency || item.currency || "USDC"; }
@@ -161,6 +184,7 @@ async function api(path, options={}) {
   }
   const headers = { "content-type": "application/json", ...(options.headers || {}) };
   if (state.wallet) headers["x-wallet"] = state.wallet;
+  if (path.startsWith("/admin")) Object.assign(headers, await adminAuthHeaders());
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
   const payload = await response.json().catch(()=>({}));
   if (!response.ok) throw new Error(payload.error || "API request failed.");
@@ -189,7 +213,7 @@ function walletOptions() {
     key:item.key,
     name:item.name,
     ready:item.adapter.readyState === WalletReadyState.Installed || item.adapter.readyState === WalletReadyState.Loadable,
-    connect:async()=>{ await item.adapter.connect(); return { publicKey:item.adapter.publicKey, disconnect:()=>item.adapter.disconnect(), sendTransaction:(transaction)=>item.adapter.sendTransaction(transaction, solanaConnection) }; },
+    connect:async()=>{ await item.adapter.connect(); return { publicKey:item.adapter.publicKey, disconnect:()=>item.adapter.disconnect(), sendTransaction:(transaction)=>item.adapter.sendTransaction(transaction, solanaConnection), signMessage:item.adapter.signMessage ? (message)=>item.adapter.signMessage(message) : null }; },
   }));
   const injectedOptions = injectedWallets.map((item)=>({ key:item.key, name:item.name, ready:item.ready(), connect:item.connect }));
   return [...adapterOptions, ...injectedOptions];
@@ -322,6 +346,7 @@ async function connectWallet(key) {
 async function disconnectWallet() {
   await activeWallet?.disconnect?.();
   activeWallet = null;
+  adminProof = null;
   state.wallet = null;
   state.walletProviderKey = null;
   save();

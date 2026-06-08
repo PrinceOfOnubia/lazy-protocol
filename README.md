@@ -15,23 +15,28 @@ This repo contains a Vite frontend and a Node/Express + Prisma backend prepared 
 Frontend `.env`:
 
 ```bash
-VITE_API_BASE_URL=https://your-railway-backend.up.railway.app
+VITE_API_URL=https://lazy-protocol-api-production.up.railway.app
+VITE_API_BASE_URL=https://lazy-protocol-api-production.up.railway.app
 VITE_SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
-VITE_REWARD_WALLET=your_protocol_reward_wallet
+VITE_REWARD_WALLET=
+VITE_USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+VITE_APP_NAME=Lazy Protocol
 ```
 
 Backend `backend/.env`:
 
 ```bash
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lazy_protocol?schema=public
-PORT=8787
-FRONTEND_URL=http://localhost:4173
-ADMIN_WALLETS=wallet1,wallet2
+DATABASE_URL=
+PORT=8080
+NODE_ENV=production
+FRONTEND_URL=https://lazy-protocol.vercel.app
+ADMIN_WALLETS=
 SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
-REWARD_WALLET=your_protocol_reward_wallet
+REWARD_WALLET=
+USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
 X_CLIENT_ID=
 X_CLIENT_SECRET=
-X_CALLBACK_URL=http://localhost:8787/auth/x/callback
+X_CALLBACK_URL=https://lazy-protocol-api-production.up.railway.app/auth/x/callback
 X_BEARER_TOKEN=
 ```
 
@@ -55,7 +60,7 @@ The frontend can still render static visual fallback data, but production action
 - `PATCH /users/me`
 - `GET /missions`
 - `GET /missions/:id`
-- `POST /missions` (requires agent ownership and verified SOL funding transaction)
+- `POST /missions` (requires agent ownership and verified SOL or USDC funding transaction)
 - `POST /missions/:id/join`
 - `POST /missions/:id/boost`
 - `POST /missions/:id/submissions`
@@ -110,6 +115,6 @@ npm start
 
 ## Admin
 
-Set `ADMIN_WALLETS` on the backend to a comma-separated list of real connected Solana wallet addresses allowed to access `/admin`. Admin auth is a wallet allowlist checked against the `x-wallet` request header after the wallet profile has synced. Admin users can view users, agents, missions, funding transactions, submissions, reward boosts, expire missions, approve/reject submissions, disqualify entries, mark winners, and track payouts.
+Set `ADMIN_WALLETS` on the backend to a comma-separated list of real connected Solana wallet addresses allowed to access `/admin`. Admin requests require the connected wallet to sign a short-lived Lazy Protocol admin access message; the backend verifies that signature against the allowlisted wallet before processing admin actions. Admin users can view users, agents, missions, funding transactions, submissions, reward boosts, expire missions, approve/reject submissions, disqualify entries, mark winners, and track payouts.
 
-Mission creation and reward boosts are funded upfront in SOL. The app funds `VITE_REWARD_WALLET`, the protocol confirms the payment against `REWARD_WALLET`, rejects reused signatures, then persists the mission or boost.
+Mission creation and reward boosts are funded upfront in SOL or USDC. The app funds `VITE_REWARD_WALLET`, the protocol confirms the payment against `REWARD_WALLET`, rejects reused signatures, then persists the mission or boost.

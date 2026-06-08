@@ -15,14 +15,15 @@ The backend lives in `backend/` and is a Node.js + Express + TypeScript + Prisma
 DATABASE_URL=
 PORT=8080
 NODE_ENV=production
-FRONTEND_URL=
+FRONTEND_URL=https://lazy-protocol.vercel.app
 X_CLIENT_ID=
 X_CLIENT_SECRET=
-X_CALLBACK_URL=
+X_CALLBACK_URL=https://lazy-protocol-api-production.up.railway.app/auth/x/callback
 X_BEARER_TOKEN=
 ADMIN_WALLETS=
 SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 REWARD_WALLET=
+USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
 ```
 
 Do not invent secret values. X OAuth/API keys, admin wallets, and the protocol reward wallet must be provided by the project owner.
@@ -50,14 +51,15 @@ railway environment production
 ```bash
 railway variables set PORT=8080
 railway variables set NODE_ENV=production
-railway variables set FRONTEND_URL=https://your-vercel-domain.vercel.app
+railway variables set FRONTEND_URL=https://lazy-protocol.vercel.app
 railway variables set X_CLIENT_ID=...
 railway variables set X_CLIENT_SECRET=...
-railway variables set X_CALLBACK_URL=https://your-railway-api.up.railway.app/auth/x/callback
+railway variables set X_CALLBACK_URL=https://lazy-protocol-api-production.up.railway.app/auth/x/callback
 railway variables set X_BEARER_TOKEN=...
 railway variables set ADMIN_WALLETS=wallet1,wallet2
 railway variables set SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 railway variables set REWARD_WALLET=your_protocol_reward_wallet
+railway variables set USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
 ```
 
 Railway Postgres should provide `DATABASE_URL` automatically after adding the database service.
@@ -109,11 +111,11 @@ Expected:
 Set these Vercel environment variables:
 
 ```bash
-VITE_API_URL=https://your-railway-api.up.railway.app
-VITE_API_BASE_URL=https://your-railway-api.up.railway.app
-VITE_SOLANA_RPC_URL=
+VITE_API_URL=https://lazy-protocol-api-production.up.railway.app
+VITE_API_BASE_URL=https://lazy-protocol-api-production.up.railway.app
+VITE_SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
 VITE_REWARD_WALLET=
-VITE_NETWORK=devnet
+VITE_USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
 VITE_APP_NAME=Lazy Protocol
 ```
 
@@ -124,7 +126,7 @@ vercel env add VITE_API_URL production
 vercel env add VITE_API_BASE_URL production
 vercel env add VITE_SOLANA_RPC_URL production
 vercel env add VITE_REWARD_WALLET production
-vercel env add VITE_NETWORK production
+vercel env add VITE_USDC_MINT production
 vercel env add VITE_APP_NAME production
 vercel --prod
 ```
