@@ -94,6 +94,12 @@ async function adminAuthHeaders() {
   adminProof = { wallet: state.wallet, message, signature, expiresAt: Date.now() + 4 * 60 * 1000 };
   return { "x-admin-message": message, "x-admin-signature": signature };
 }
+function adminSignerReady() {
+  return Boolean(state.wallet && activeWallet?.signMessage);
+}
+function renderAdminAuthGate(message="Reconnect your approved admin wallet to sign admin access.") {
+  app.innerHTML = `${pageTop("ADMIN // SIGNATURE REQUIRED","ADMIN ACCESS","${message}")}<section class="section-shell content-section compact"><div class="panel"><p class="page-copy">Admin access now requires a short-lived signature from an allowlisted Solana wallet. This protects the admin panel from spoofed wallet headers after a page refresh.</p><div class="action-row"><button class="button primary" data-open-wallet>${state.wallet ? "RECONNECT & SIGN" : "CONNECT ADMIN WALLET"}</button><a class="button secondary" href="${routeHref("/profile")}" data-route>VIEW PROFILE</a></div></div></section>`;
+}
 function money(value) { return `$${Number(value).toLocaleString()}`; }
 function sol(value) { return `${Number(value).toLocaleString(undefined,{ maximumFractionDigits: 4 })} SOL`; }
 function rewardCurrency(item={}) { return item.rewardCurrency || item.currency || "USDC"; }
@@ -336,9 +342,9 @@ async function connectWallet(key) {
     save();
     closeModal();
     updateWalletUI();
-    render();
     showToast("WALLET CONNECTED");
-    syncWalletProfile(wallet);
+    await syncWalletProfile(wallet);
+    render();
   } catch (error) {
     showToast(error.message || "WALLET CONNECTION FAILED");
   }
@@ -777,7 +783,7 @@ function renderDevelopers() {
 }
 function renderAdmin() {
   if (!state.wallet) return app.innerHTML=`${pageTop("ADMIN // LOCKED","CONNECT ADMIN WALLET","Connect an approved admin wallet to manage missions, agents, users, submissions, and boosts.")}<section class="section-shell content-section compact"><button class="button primary" data-open-wallet>CONNECT</button></section>`;
-  if (API_BASE && !liveData.admin) api("/admin/overview").then((payload)=>{ liveData.admin=payload; render(); }).catch((error)=>{ app.innerHTML=`${pageTop("ADMIN // ACCESS CHECK","ADMIN PANEL","${error.message}")}<section class="section-shell content-section compact"><a class="button secondary" href="${routeHref("/profile")}" data-route>VIEW PROFILE</a></section>`; });
+  if (API_BASE && !liveData.admin) api("/admin/overview").then((payload)=>{ liveData.admin=payload; render(); }).catch((error)=>renderAdminAuthGate(error.message));
   const admin = liveData.admin;
   if (!admin) return app.innerHTML=`${pageTop("ADMIN // LOADING","ADMIN PANEL","Loading Lazy Protocol records.")}<section class="section-shell content-section compact">${profileSyncWarning ? `<div class="empty">${profileSyncWarning}</div>` : `<div class="empty">LOADING ADMIN DATA...</div>`}</section>`;
   const filteredSubmissions = admin.submissions.filter((s)=> (adminStatusFilter==="All" || String(s.status).toLowerCase()===adminStatusFilter.toLowerCase()) && (adminCategoryFilter==="All" || s.missionCategory===adminCategoryFilter) && (adminMissionFilter==="All" || s.missionId===adminMissionFilter));
@@ -903,6 +909,7 @@ function renderXEmbeds() {
 }
 function render(){
   const path=routePath(); closeModal();
+  if(path.startsWith("/admin") && !adminSignerReady()) return renderAdminAuthGate();
   if(path==="/") renderHome();
   else if(path==="/missions") renderMissions();
   else if(path==="/missions/create") renderCreate();
