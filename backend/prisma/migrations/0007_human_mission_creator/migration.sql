@@ -1,0 +1,1 @@
+ALTER TYPE "MissionCreatedByType" ADD VALUE IF NOT EXISTS 'HUMAN';

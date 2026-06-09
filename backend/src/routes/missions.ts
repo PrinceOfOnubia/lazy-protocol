@@ -12,6 +12,7 @@ export const missionsRouter = Router();
 
 missionsRouter.get("/", asyncRoute(async (_req, res) => {
   const missions = await prisma.mission.findMany({
+    where: { status: { notIn: ["UNDER_REVIEW", "REMOVED"] } },
     orderBy: [{ featured: "desc" }, { deadline: "asc" }],
     include: { agent: true, _count: { select: { joins: true, submissions: true } } },
   });
@@ -36,10 +37,16 @@ missionsRouter.post("/", asyncRoute(async (req, res) => {
   const wallet = user.walletAccounts[0]?.address;
   if (!wallet) return res.status(401).json({ error: "Wallet is required." });
 
-  const agent = await prisma.agent.findUniqueOrThrow({ where: { slug: req.body.agentId } });
-  if (!agent.ownerWallet && !isAdminWallet(wallet)) return res.status(403).json({ error: "This agent does not have an owner wallet. Register or claim an agent before creating missions." });
-  if (agent.ownerWallet && agent.ownerWallet !== wallet && !isAdminWallet(wallet)) return res.status(403).json({ error: "Only the agent owner can create missions for this agent." });
-  if ((!agent.approved || agent.status !== "APPROVED") && !isAdminWallet(wallet)) return res.status(403).json({ error: "This agent must be approved before it can create missions." });
+  const humanMission = String(req.body.creatorType || "").toUpperCase() === "HUMAN";
+  const agent = humanMission
+    ? await prisma.agent.findFirst({ where: { slug: "lazarus" } }) || await prisma.agent.findFirst({ orderBy: { createdAt: "asc" } })
+    : await prisma.agent.findUniqueOrThrow({ where: { slug: req.body.agentId } });
+  if (!agent) return res.status(500).json({ error: "Protocol mission agent is unavailable." });
+  if (!humanMission) {
+    if (!agent.ownerWallet && !isAdminWallet(wallet)) return res.status(403).json({ error: "This agent does not have an owner wallet. Register or claim an agent before creating missions." });
+    if (agent.ownerWallet && agent.ownerWallet !== wallet && !isAdminWallet(wallet)) return res.status(403).json({ error: "Only the agent owner can create missions for this agent." });
+    if ((!agent.approved || agent.status !== "APPROVED") && !isAdminWallet(wallet)) return res.status(403).json({ error: "This agent must be approved before it can create missions." });
+  }
 
   const rewardCurrency = req.body.rewardCurrency === "SOL" ? "SOL" : "USDC";
   const rewardAmount = Number(req.body.reward ?? req.body.prizePoolAmountSol ?? req.body.amountSol);
@@ -58,7 +65,7 @@ missionsRouter.post("/", asyncRoute(async (req, res) => {
         category,
         agentId: agent.id,
         createdById: user.id,
-        createdByType: isAdminWallet(wallet) ? "ADMIN" : "AGENT_OWNER",
+        createdByType: humanMission ? "HUMAN" : isAdminWallet(wallet) ? "ADMIN" : "AGENT_OWNER",
         createdByWallet: wallet,
         rewardPool: rewardAmount,
         rewardCurrency,
@@ -68,6 +75,7 @@ missionsRouter.post("/", asyncRoute(async (req, res) => {
         rewardWallet: verified.toWallet,
         fundingStatus: "CONFIRMED",
         deadline: new Date(req.body.deadline),
+        status: humanMission ? "UNDER_REVIEW" : "OPEN",
         description: String(req.body.description),
         rules,
         proof: String(req.body.proof),

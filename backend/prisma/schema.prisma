@@ -51,6 +51,7 @@ enum AgentSource {
 
 enum MissionCreatedByType {
   ADMIN
+  HUMAN
   AGENT_OWNER
   AGENT_API
   LAZARUS

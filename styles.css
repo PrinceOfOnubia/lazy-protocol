@@ -344,8 +344,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
 .verified-badge { display: inline-flex; margin-left: 8px; padding: 3px 6px; border: 1px solid var(--line); color: var(--red); font-size: 8px; letter-spacing: 1px; }
 .full-width { width: 100%; }
 .profile-actions { padding-top: 16px; padding-bottom: 12px; }
-.admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; padding-top: 42px; padding-bottom: 80px; }
-.admin-layout { display: grid; grid-template-columns: 220px 1fr; gap: 24px; align-items: start; padding-top: 28px; padding-bottom: 80px; font-size: 14px; }
+.admin-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 28px; padding-top: 42px; padding-bottom: 80px; }
+.admin-layout { max-width: min(1680px, calc(100vw - 48px)); display: grid; grid-template-columns: 250px minmax(0,1fr); gap: 32px; align-items: start; padding-top: 28px; padding-bottom: 80px; font-size: 15px; }
 .admin-content { min-width: 0; }
 .admin-sidebar { position: sticky; top: 84px; display: grid; gap: 10px; padding: 16px; border: 1px solid rgba(232,225,213,.12); background: rgba(8,9,9,.82); backdrop-filter: blur(12px); }
 .admin-sidebar label { display: none; }
@@ -358,10 +358,10 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
 .admin-row.stacked { grid-template-columns: 1fr; align-items: start; }
 .admin-row.clickable { text-decoration: none; }
 .admin-wide { grid-column: 1 / -1; }
-.admin-dashboard { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; padding-top: 18px; }
-.admin-dashboard .panel { padding: 16px; }
+.admin-dashboard { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; padding-top: 18px; }
+.admin-dashboard .panel { padding: 22px; }
 .admin-dashboard small { display: block; color: var(--muted); font-size: 10px; letter-spacing: 1.5px; }
-.admin-dashboard b { display: block; margin-top: 6px; color: var(--cream); font-family: var(--display); font-size: 28px; }
+.admin-dashboard b { display: block; margin-top: 6px; color: var(--cream); font-family: var(--display); font-size: 36px; }
 .admin-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .admin-helper { color: var(--muted); font-size: 11px; letter-spacing: .6px; line-height: 1.7; }
 .mini-button.success { border-color: rgba(87, 209, 134, .38); color: #7be39d; background: rgba(31, 107, 60, .1); }
