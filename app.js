@@ -88,7 +88,7 @@ async function adminAuthHeaders() {
     return { "x-admin-message": adminProof.message, "x-admin-signature": adminProof.signature };
   }
   const timestamp = new Date().toISOString();
-  const message = `Lazy Protocol Admin Access\nWallet: ${state.wallet}\nTimestamp: ${timestamp}`;
+  const message = `Lazy Protocol Admin Access | Wallet: ${state.wallet} | Timestamp: ${timestamp}`;
   const signatureBytes = await activeWallet.signMessage(new TextEncoder().encode(message));
   const signature = typeof signatureBytes === "string" ? signatureBytes : bytesToBase64(signatureBytes);
   adminProof = { wallet: state.wallet, message, signature, expiresAt: Date.now() + 4 * 60 * 1000 };

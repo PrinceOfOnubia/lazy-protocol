@@ -53,7 +53,7 @@ function verifyAdminSignature(req: Request, wallet: string) {
   const signature = headerValue(req.headers["x-admin-signature"]);
   if (!message || !signature) throw adminError("Admin wallet signature is required.");
   if (!message.includes(`Wallet: ${wallet}`)) throw adminError("Admin signature wallet mismatch.", 403);
-  const timestampMatch = message.match(/Timestamp:\s*(.+)$/m);
+  const timestampMatch = message.match(/Timestamp:\s*([^|]+)$/m) || message.match(/Timestamp:\s*([^|]+)/);
   const timestamp = timestampMatch ? Date.parse(timestampMatch[1]) : NaN;
   if (!Number.isFinite(timestamp)) throw adminError("Admin signature timestamp is invalid.", 400);
   if (Math.abs(Date.now() - timestamp) > 5 * 60 * 1000) throw adminError("Admin signature expired.");
