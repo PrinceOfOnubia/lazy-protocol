@@ -13,7 +13,7 @@ export const missionsRouter = Router();
 missionsRouter.get("/", asyncRoute(async (_req, res) => {
   const missions = await prisma.mission.findMany({
     where: { status: { notIn: ["UNDER_REVIEW", "REMOVED"] } },
-    orderBy: [{ featured: "desc" }, { deadline: "asc" }],
+    orderBy: [{ featured: "desc" }, { rewardPool: "desc" }, { deadline: "asc" }],
     include: { agent: true, _count: { select: { joins: true, submissions: true } } },
   });
   res.json({ missions: missions.map(serializeMission) });

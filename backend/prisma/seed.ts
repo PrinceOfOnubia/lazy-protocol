@@ -1,10 +1,9 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
-import { LAZY_X_RULE } from "../src/lib/constants.js";
+import { ensureRules } from "../src/lib/constants.js";
 
 const prisma = new PrismaClient();
 const hoursFromNow = (hours: number) => new Date(Date.now() + hours * 3600000);
-const withLazyRule = (rules: string[]) => rules.includes(LAZY_X_RULE) ? rules : [...rules, LAZY_X_RULE];
 const adminWallet = (process.env.ADMIN_WALLETS || "").split(",").map((item) => item.trim()).filter(Boolean)[0] || null;
 
 const agents = [
@@ -18,13 +17,13 @@ const agents = [
 ];
 
 const missions = [
-  { slug: "world-cup-meme", title: "CREATE A MATCH-DAY MEME", category: "World Cup", agentSlug: "neo-agent", rewardPool: 100, deadline: hoursFromNow(30), description: "Make a sharp, shareable football meme for the opening week.", rules: ["Keep it original and supporter-friendly.", "Submit one public X proof link.", "No hateful or unsafe content."], proof: "Public X post URL tagging @lazy_protocol", featured: true },
-  { slug: "final-score", title: "PREDICT THE FINAL SCORE", category: "World Cup", agentSlug: "goalmind", rewardPool: 240, deadline: hoursFromNow(7), description: "Submit your free-to-play final score prediction before kickoff.", rules: ["One prediction per human.", "Submit before the timer expires.", "This is a free-to-play reward quest, not betting."], proof: "Public X post URL tagging @lazy_protocol", featured: true },
-  { slug: "creator-hubs", title: "FIND 10 AI AGENT PROJECTS", category: "Research", agentSlug: "atlas-node", rewardPool: 320, deadline: hoursFromNow(54), description: "Find ten active AI agent projects and document the useful signal.", rules: ["Use public sources.", "Include ten working links.", "Summaries must be your own work."], proof: "Research document and X summary post URL tagging @lazy_protocol" },
-  { slug: "country-poster", title: "DESIGN YOUR COUNTRY'S POSTER", category: "World Cup", agentSlug: "studioclaw", rewardPool: 250, deadline: hoursFromNow(19), description: "Design a match-day poster for your favorite national team.", rules: ["Use original artwork.", "Keep the design positive.", "Include your agent team mark."], proof: "Public X image post URL tagging @lazy_protocol", featured: true },
-  { slug: "fan-reaction", title: "RECORD A FAN REACTION", category: "World Cup", agentSlug: "goalmind", rewardPool: 180, deadline: hoursFromNow(2), description: "Record a short, safe fan reaction after the final whistle.", rules: ["Keep the clip under 45 seconds.", "Record in a safe location.", "No harassment or unsafe behavior."], proof: "Public X video post URL tagging @lazy_protocol" },
-  { slug: "invite-supporters", title: "INVITE 3 SUPPORTERS TO YOUR AGENT TEAM", category: "Community", agentSlug: "neo-agent", rewardPool: 75, deadline: hoursFromNow(72), description: "Bring three verified supporters into an agent team.", rules: ["Invite real people only.", "No spam.", "Supporters must opt in."], proof: "Public X recap post URL tagging @lazy_protocol" },
-  { slug: "golden-boot", title: "PREDICT GOLDEN BOOT WINNER", category: "Predictions", agentSlug: "oracle-xi", rewardPool: 190, deadline: hoursFromNow(41), description: "Pick your tournament top scorer in a free-to-play reward contest.", rules: ["One pick per human.", "No purchase required.", "Points and rewards only; no betting framing."], proof: "Public X prediction post URL tagging @lazy_protocol" },
+  { slug: "lazy-viral-100k", title: "CREATE VIRAL $LAZY CONTENT", category: "Creative", agentSlug: "lazarus", rewardPool: 5000, deadline: hoursFromNow(336), description: "Create original viral content featuring $LAZY that reaches at least 100,000 views, impressions, or engagement metrics. Proof of performance is required for the 5,000 USDC reward.", rules: ["Content must be original and publicly viewable.", "Reach must come from real audience activity, not bought or botted engagement.", "Proof must show at least 100,000 views, impressions, or engagement metrics.", "No impersonation, spam, harassment, or misleading claims."], proof: "Public post URL plus analytics screenshot showing at least 100,000 views, impressions, or engagement metrics.", featured: true },
+  { slug: "lazy-car-wrap", title: "WRAP YOUR CAR WITH $LAZY", category: "Real World", agentSlug: "street-signal", rewardPool: 700, deadline: hoursFromNow(504), description: "Wrap your car with approved $LAZY token branding or a safe temporary promotional design. Submit clear photo and video proof.", rules: ["Use a legal wrap, decal, or temporary display that is safe for driving.", "Do not cover windows, lights, mirrors, plates, or safety markings.", "Follow local road, advertising, and vehicle rules.", "Show the full vehicle and $LAZY branding clearly in your proof."], proof: "Public X post with photos or video of the wrapped car tagging @lazy_protocol." },
+  { slug: "lazy-stadium-photo", title: "DISPLAY $LAZY NEXT TO A STADIUM", category: "Real World", agentSlug: "street-signal", rewardPool: 500, deadline: hoursFromNow(240), description: "Draw or display the $LAZY ticker and take a clear photo near a stadium or arena.", rules: ["Use a publicly accessible location only.", "Do not trespass, vandalize, block access, or disrupt venue operations.", "The $LAZY ticker and stadium context must be visible.", "Keep the activation safe, respectful, and legal."], proof: "Public X photo post tagging @lazy_protocol." },
+  { slug: "lazy-mall-chant", title: "COORDINATE A $LAZY MALL CHANT", category: "Community", agentSlug: "street-signal", rewardPool: 400, deadline: hoursFromNow(240), description: "Gather 50 consenting people in a shopping mall or approved public venue and have them shout the $LAZY ticker together. Record and submit video proof.", rules: ["Get venue permission where required.", "Participants must opt in and appear willingly.", "Do not block exits, escalators, stores, or foot traffic.", "No harassment, unsafe crowd behavior, or disruption of staff and shoppers."], proof: "Public X video post tagging @lazy_protocol with a visible group count or clear crowd proof." },
+  { slug: "lazy-original-meme", title: "CREATE AN ORIGINAL $LAZY MEME", category: "Creative", agentSlug: "studioclaw", rewardPool: 50, deadline: hoursFromNow(168), description: "Create an original meme about $LAZY and post it publicly.", rules: ["Meme must be original.", "No copied templates without meaningful original editing.", "No hateful, unsafe, or misleading content."], proof: "Public X meme post tagging @lazy_protocol." },
+  { slug: "lazy-x-50-likes", title: "MAKE A $LAZY X POST WITH 50 LIKES", category: "Community", agentSlug: "neo-agent", rewardPool: 25, deadline: hoursFromNow(168), description: "Make a public X post about Lazy Protocol or the $LAZY ticker and reach at least 50 likes.", rules: ["Post must be original and publicly viewable.", "Likes must come from real accounts and authentic engagement.", "No spam, impersonation, or bought engagement."], proof: "Public X post URL tagging @lazy_protocol with at least 50 likes visible." },
+  { slug: "lazy-x-50-comments", title: "MAKE A $LAZY X POST WITH 50 COMMENTS", category: "Community", agentSlug: "neo-agent", rewardPool: 25, deadline: hoursFromNow(168), description: "Make a public X post about Lazy Protocol or the $LAZY ticker and reach at least 50 comments.", rules: ["Post must be original and publicly viewable.", "Comments must come from real accounts and authentic engagement.", "No spam, comment farming, impersonation, or bought engagement."], proof: "Public X post URL tagging @lazy_protocol with at least 50 comments visible." },
 ];
 
 for (const item of agents) {
@@ -36,8 +35,8 @@ for (const item of missions) {
   const agent = await prisma.agent.findUniqueOrThrow({ where: { slug: agentSlug } });
   await prisma.mission.upsert({
     where: { slug: mission.slug },
-    update: { ...mission, rewardCurrency: "USDC", fundingStatus: "PENDING", status: "UNDER_REVIEW", rules: withLazyRule(mission.rules), agentId: agent.id },
-    create: { ...mission, rewardCurrency: "USDC", fundingStatus: "PENDING", status: "UNDER_REVIEW", rules: withLazyRule(mission.rules), agentId: agent.id },
+    update: { ...mission, rewardCurrency: "USDC", fundingStatus: "CONFIRMED", status: "OPEN", rules: ensureRules(mission.rules), agentId: agent.id },
+    create: { ...mission, rewardCurrency: "USDC", fundingStatus: "CONFIRMED", status: "OPEN", rules: ensureRules(mission.rules), agentId: agent.id },
   });
 }
 

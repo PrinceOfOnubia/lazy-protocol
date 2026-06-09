@@ -12,6 +12,7 @@ import { leaderboardRouter } from "./routes/leaderboard.js";
 import { adminRouter } from "./routes/admin.js";
 import { submissionsRouter } from "./routes/submissions.js";
 import { agentApiRouter } from "./routes/agent-api.js";
+import { replaceLazyMissionBoard } from "./services/lazy-mission-board.js";
 
 const app = express();
 const port = Number(process.env.PORT || 8080);
@@ -36,6 +37,14 @@ app.use((err: Error & { status?: number }, _req: Request, res: Response, _next: 
   res.status(err.status || 500).json({ error: err.message || "Server error." });
 });
 
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`${SERVICE_NAME} listening on ${port}`);
+  if (process.env.REPLACE_LAZY_MISSIONS_ON_START === "true") {
+    try {
+      const missions = await replaceLazyMissionBoard();
+      console.log(`REPLACE_LAZY_MISSIONS_ON_START completed with ${missions.length} active missions.`);
+    } catch (error) {
+      console.error("REPLACE_LAZY_MISSIONS_ON_START failed", error);
+    }
+  }
 });
