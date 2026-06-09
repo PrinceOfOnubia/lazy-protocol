@@ -84,3 +84,13 @@ authRouter.get("/x/status", asyncRoute(async (req, res) => {
   const x = user.xAccounts[0];
   res.json({ connected: Boolean(x?.verified), xAccount: x || null });
 }));
+
+authRouter.delete("/x", asyncRoute(async (req, res) => {
+  const user = await requireUser(req);
+  await prisma.xAccount.deleteMany({ where: { userId: user.id } });
+  const updated = await prisma.user.findUniqueOrThrow({
+    where: { id: user.id },
+    include: { walletAccounts: true, xAccounts: true },
+  });
+  res.json({ user: publicUser(updated), connected: false });
+}));
