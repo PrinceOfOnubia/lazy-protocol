@@ -31,9 +31,8 @@ button { cursor: pointer; }
 .embers { position: fixed; inset: 0; pointer-events: none; opacity: .55; background: radial-gradient(circle at 16% 24%, var(--orange) 0 1px, transparent 2px), radial-gradient(circle at 76% 14%, var(--red) 0 1px, transparent 2px), radial-gradient(circle at 90% 46%, var(--orange) 0 1px, transparent 2px), radial-gradient(circle at 38% 63%, var(--red) 0 1px, transparent 2px); }
 .section-shell { max-width: 1180px; margin: auto; padding-left: 24px; padding-right: 24px; }
 .site-header { height: 68px; padding: 0 34px; display: flex; align-items: center; gap: 28px; border-top: 1px solid #1a0d0b; border-bottom: 1px solid #21100e; background: rgba(5,6,6,.86); backdrop-filter: blur(14px); position: sticky; top: 0; z-index: 10; }
-.brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); letter-spacing: 1.5px; font-size: 21px; white-space: nowrap; }
-.brand-mark { display: grid; place-items: center; width: 24px; height: 24px; border: 2px solid var(--red); color: var(--red); font-family: var(--mono); font-weight: 700; font-size: 12px; transform: rotate(45deg); }
-.brand-mark::first-letter { transform: rotate(-45deg); }
+.brand { display: flex; align-items: center; white-space: nowrap; }
+.brand-logo { display: block; width: clamp(164px, 16vw, 238px); height: auto; object-fit: contain; background: transparent; filter: drop-shadow(0 0 12px rgba(239,70,61,.12)); }
 .red { color: var(--red); }
 .main-nav { display: flex; gap: 38px; margin-left: auto; }
 .main-nav a, .wallet-button, .menu-button { color: #a69d92; font-size: 11px; letter-spacing: 2px; transition: color .2s; }
@@ -237,8 +236,7 @@ a.leader-row { color: inherit; }
 .terminal-entry b { color: var(--orange); }
 .terminal-entry time { color: #615c56; }
 footer { display: flex; justify-content: space-between; gap: 20px; padding: 22px 34px; align-items: center; border-top: 1px solid var(--line); color: var(--muted); font-size: 9px; letter-spacing: 1px; }
-footer .brand { font-size: 17px; }
-footer .brand-mark { width: 19px; height: 19px; font-size: 9px; }
+footer .brand-logo { width: 174px; }
 .footer-links { display: flex; flex-wrap: wrap; gap: 16px; }
 .footer-links a:hover { color: var(--red); }
 .modal-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 20px; background: rgba(0,0,0,.82); backdrop-filter: blur(8px); }
@@ -487,8 +485,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
   body { padding-bottom: calc(86px + env(safe-area-inset-bottom)); }
   .section-shell { padding-left: 14px; padding-right: 14px; }
   .site-header { height: 62px; padding: 0 14px; }
-  .brand { gap: 8px; font-size: 17px; }
-  .brand-mark { width: 21px; height: 21px; font-size: 10px; }
+  .brand-logo { width: clamp(146px, 42vw, 188px); }
   .wallet-button { padding: 9px 10px; }
   .wallet-dot { width: 6px; height: 6px; }
   .hero { min-height: calc(100svh - 62px); max-height: none; padding-top: 34px; padding-bottom: 26px; justify-content: center; }
@@ -625,8 +622,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--red); }
     text-align: center;
     background: linear-gradient(180deg, rgba(8,9,9,.96), rgba(5,6,6,1));
   }
-  footer .brand { justify-content: center; font-size: 18px; }
-  footer .brand-mark { width: 22px; height: 22px; font-size: 10px; }
+  footer .brand { justify-content: center; }
+  footer .brand-logo { width: 178px; }
   .footer-links {
     justify-content: center;
     display: grid;
