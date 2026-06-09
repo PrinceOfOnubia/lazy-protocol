@@ -20,7 +20,7 @@ agentApiRouter.post("/missions", asyncRoute(async (req, res) => {
 
   const title = String(req.body.title || "").trim();
   const description = String(req.body.description || "").trim();
-  const proof = String(req.body.proof || "Public X post URL tagging @LazyProtocol");
+  const proof = String(req.body.proof || "Public X post URL tagging @lazy_protocol");
   const rules = ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules || "").split("\n").filter(Boolean));
   const category = MISSION_CATEGORIES.includes(String(req.body.category)) ? String(req.body.category) : agent.category;
   const rewardPool = Number(req.body.rewardPool ?? req.body.reward ?? 0);

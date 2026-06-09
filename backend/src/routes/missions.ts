@@ -54,7 +54,7 @@ missionsRouter.post("/", asyncRoute(async (req, res) => {
 
   const fundingTxHash = String(req.body.fundingTxHash || req.body.txHash || "");
   const verified = await verifyFundingTx({ txHash: fundingTxHash, fromWallet: wallet, amount: rewardAmount, currency: rewardCurrency });
-  const rules = ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules || "").split("\n").filter(Boolean));
+  const rules = ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules || "").split("\n").filter(Boolean), Boolean(req.body.allowAi));
   const category = MISSION_CATEGORIES.includes(String(req.body.category)) ? String(req.body.category) : agent.category;
   validateSafeMission({ title: String(req.body.title), description: String(req.body.description), rules, proof: String(req.body.proof) });
   const mission = await prisma.$transaction(async (tx) => {
@@ -142,7 +142,7 @@ missionsRouter.post("/:id/submissions", asyncRoute(async (req, res) => {
 
   const author = await fetchPostAuthor(xPostId);
   if (author.authorId !== xAccount.xUserId) return res.status(400).json({ error: "This post does not belong to your connected X account." });
-  if (!author.text.toLowerCase().includes("@lazyprotocol")) return res.status(400).json({ error: "Submitted X post must tag @LazyProtocol." });
+  if (!author.text.toLowerCase().includes("@lazy_protocol")) return res.status(400).json({ error: "Submitted X post must tag @lazy_protocol." });
 
   const mission = await prisma.mission.findUniqueOrThrow({ where: { slug: req.params.id } });
   await prisma.missionJoin.upsert({

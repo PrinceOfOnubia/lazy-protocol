@@ -18,13 +18,13 @@ const agents = [
 ];
 
 const missions = [
-  { slug: "world-cup-meme", title: "CREATE A MATCH-DAY MEME", category: "World Cup", agentSlug: "neo-agent", rewardPool: 100, deadline: hoursFromNow(30), description: "Make a sharp, shareable football meme for the opening week.", rules: ["Keep it original and supporter-friendly.", "Submit one public X proof link.", "No hateful or unsafe content."], proof: "Public X post URL tagging @LazyProtocol", featured: true },
-  { slug: "final-score", title: "PREDICT THE FINAL SCORE", category: "World Cup", agentSlug: "goalmind", rewardPool: 240, deadline: hoursFromNow(7), description: "Submit your free-to-play final score prediction before kickoff.", rules: ["One prediction per human.", "Submit before the timer expires.", "This is a free-to-play reward quest, not betting."], proof: "Public X post URL tagging @LazyProtocol", featured: true },
-  { slug: "creator-hubs", title: "FIND 10 AI AGENT PROJECTS", category: "Research", agentSlug: "atlas-node", rewardPool: 320, deadline: hoursFromNow(54), description: "Find ten active AI agent projects and document the useful signal.", rules: ["Use public sources.", "Include ten working links.", "Summaries must be your own work."], proof: "Research document and X summary post URL tagging @LazyProtocol" },
-  { slug: "country-poster", title: "DESIGN YOUR COUNTRY'S POSTER", category: "World Cup", agentSlug: "studioclaw", rewardPool: 250, deadline: hoursFromNow(19), description: "Design a match-day poster for your favorite national team.", rules: ["Use original artwork.", "Keep the design positive.", "Include your agent team mark."], proof: "Public X image post URL tagging @LazyProtocol", featured: true },
-  { slug: "fan-reaction", title: "RECORD A FAN REACTION", category: "World Cup", agentSlug: "goalmind", rewardPool: 180, deadline: hoursFromNow(2), description: "Record a short, safe fan reaction after the final whistle.", rules: ["Keep the clip under 45 seconds.", "Record in a safe location.", "No harassment or unsafe behavior."], proof: "Public X video post URL tagging @LazyProtocol" },
-  { slug: "invite-supporters", title: "INVITE 3 SUPPORTERS TO YOUR AGENT TEAM", category: "Community", agentSlug: "neo-agent", rewardPool: 75, deadline: hoursFromNow(72), description: "Bring three verified supporters into an agent team.", rules: ["Invite real people only.", "No spam.", "Supporters must opt in."], proof: "Public X recap post URL tagging @LazyProtocol" },
-  { slug: "golden-boot", title: "PREDICT GOLDEN BOOT WINNER", category: "Predictions", agentSlug: "oracle-xi", rewardPool: 190, deadline: hoursFromNow(41), description: "Pick your tournament top scorer in a free-to-play reward contest.", rules: ["One pick per human.", "No purchase required.", "Points and rewards only; no betting framing."], proof: "Public X prediction post URL tagging @LazyProtocol" },
+  { slug: "world-cup-meme", title: "CREATE A MATCH-DAY MEME", category: "World Cup", agentSlug: "neo-agent", rewardPool: 100, deadline: hoursFromNow(30), description: "Make a sharp, shareable football meme for the opening week.", rules: ["Keep it original and supporter-friendly.", "Submit one public X proof link.", "No hateful or unsafe content."], proof: "Public X post URL tagging @lazy_protocol", featured: true },
+  { slug: "final-score", title: "PREDICT THE FINAL SCORE", category: "World Cup", agentSlug: "goalmind", rewardPool: 240, deadline: hoursFromNow(7), description: "Submit your free-to-play final score prediction before kickoff.", rules: ["One prediction per human.", "Submit before the timer expires.", "This is a free-to-play reward quest, not betting."], proof: "Public X post URL tagging @lazy_protocol", featured: true },
+  { slug: "creator-hubs", title: "FIND 10 AI AGENT PROJECTS", category: "Research", agentSlug: "atlas-node", rewardPool: 320, deadline: hoursFromNow(54), description: "Find ten active AI agent projects and document the useful signal.", rules: ["Use public sources.", "Include ten working links.", "Summaries must be your own work."], proof: "Research document and X summary post URL tagging @lazy_protocol" },
+  { slug: "country-poster", title: "DESIGN YOUR COUNTRY'S POSTER", category: "World Cup", agentSlug: "studioclaw", rewardPool: 250, deadline: hoursFromNow(19), description: "Design a match-day poster for your favorite national team.", rules: ["Use original artwork.", "Keep the design positive.", "Include your agent team mark."], proof: "Public X image post URL tagging @lazy_protocol", featured: true },
+  { slug: "fan-reaction", title: "RECORD A FAN REACTION", category: "World Cup", agentSlug: "goalmind", rewardPool: 180, deadline: hoursFromNow(2), description: "Record a short, safe fan reaction after the final whistle.", rules: ["Keep the clip under 45 seconds.", "Record in a safe location.", "No harassment or unsafe behavior."], proof: "Public X video post URL tagging @lazy_protocol" },
+  { slug: "invite-supporters", title: "INVITE 3 SUPPORTERS TO YOUR AGENT TEAM", category: "Community", agentSlug: "neo-agent", rewardPool: 75, deadline: hoursFromNow(72), description: "Bring three verified supporters into an agent team.", rules: ["Invite real people only.", "No spam.", "Supporters must opt in."], proof: "Public X recap post URL tagging @lazy_protocol" },
+  { slug: "golden-boot", title: "PREDICT GOLDEN BOOT WINNER", category: "Predictions", agentSlug: "oracle-xi", rewardPool: 190, deadline: hoursFromNow(41), description: "Pick your tournament top scorer in a free-to-play reward contest.", rules: ["One pick per human.", "No purchase required.", "Points and rewards only; no betting framing."], proof: "Public X prediction post URL tagging @lazy_protocol" },
 ];
 
 for (const item of agents) {
@@ -47,7 +47,7 @@ await prisma.lazarusMemory.upsert({
     value: {
       tone: "bold, concise, useful, campaign-native",
       purpose: "Create safe missions that turn human attention into productive onchain work.",
-      rules: ["No harmful missions", "No gambling framing", "Require @LazyProtocol X proof when X is used"],
+      rules: ["No harmful missions", "No gambling framing", "Require @lazy_protocol X proof when X is used"],
     },
   },
   create: {
@@ -55,7 +55,7 @@ await prisma.lazarusMemory.upsert({
     value: {
       tone: "bold, concise, useful, campaign-native",
       purpose: "Create safe missions that turn human attention into productive onchain work.",
-      rules: ["No harmful missions", "No gambling framing", "Require @LazyProtocol X proof when X is used"],
+      rules: ["No harmful missions", "No gambling framing", "Require @lazy_protocol X proof when X is used"],
     },
   },
 });

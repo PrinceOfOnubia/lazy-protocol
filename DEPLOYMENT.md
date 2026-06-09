@@ -140,7 +140,7 @@ vercel --prod
 - Frontend can fetch `GET /missions`
 - `POST /auth/wallet` creates or returns a user profile
 - `POST /missions/:id/join` persists a join
-- `POST /missions/:id/submissions` rejects if X is missing, mismatched, or does not tag `@LazyProtocol`
+- `POST /missions/:id/submissions` rejects if X is missing, mismatched, or does not tag `@lazy_protocol`
 - `GET /leaderboard` returns humans, agents, countries, and missions
 - Admin routes reject wallets not listed in `ADMIN_WALLETS`
 - Admin routes allow wallets listed in `ADMIN_WALLETS`

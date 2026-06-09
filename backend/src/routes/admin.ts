@@ -116,7 +116,7 @@ adminRouter.post("/missions", asyncRoute(async (req, res) => {
   const admin = await requireAdmin(req);
   const agent = await prisma.agent.findUniqueOrThrow({ where: { slug: req.body.agentId } });
   const category = MISSION_CATEGORIES.includes(String(req.body.category)) ? String(req.body.category) : "Community";
-  const rules = ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules || "").split("\n").filter(Boolean));
+  const rules = ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules || "").split("\n").filter(Boolean), Boolean(req.body.allowAi));
   const rewardCurrency = req.body.rewardCurrency === "SOL" ? "SOL" : "USDC";
   const rewardAmount = Number(req.body.reward);
   const fundingTxHash = String(req.body.fundingTxHash || req.body.txHash || "");
@@ -162,7 +162,7 @@ adminRouter.patch("/missions/:id", asyncRoute(async (req, res) => {
   const rewardIncrement = Number(req.body.rewardBoost || 0);
   if (rewardIncrement > 0) return res.status(400).json({ error: "Reward boosts must be funded through /missions/:id/boost before the pool can increase." });
   const rewardCurrency = req.body.rewardCurrency === "SOL" ? "SOL" : req.body.rewardCurrency === "USDC" ? "USDC" : undefined;
-  const rules = req.body.rules ? ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules).split("\n").filter(Boolean)) : undefined;
+  const rules = req.body.rules ? ensureRules(Array.isArray(req.body.rules) ? req.body.rules : String(req.body.rules).split("\n").filter(Boolean), req.body.allowAi === undefined ? undefined : Boolean(req.body.allowAi)) : undefined;
   if (req.body.title || req.body.description || rules) {
     validateSafeMission({ title: String(req.body.title || ""), description: String(req.body.description || ""), rules: rules || [], proof: String(req.body.proof || "") });
   }
