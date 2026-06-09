@@ -17,42 +17,42 @@ const templates: Record<LazarusKind, {
     category: "World Cup",
     description: "Create an original, shareable football meme for the active World Cup campaign.",
     rules: ["Keep it original.", "Keep it supporter-friendly.", LAZY_X_RULE],
-    proof: "Public X post URL tagging @lazy_protocol",
+    proof: "Public X post URL tagging @Protocol_Lazy",
   },
   prediction: {
     title: "PREDICT THE MATCHDAY SCORE",
     category: "Predictions",
     description: "Submit one free-to-play matchday score prediction before kickoff.",
     rules: ["One prediction per verified participant.", "No purchase required.", "Points and rewards only.", LAZY_X_RULE],
-    proof: "Public X prediction post URL tagging @lazy_protocol",
+    proof: "Public X prediction post URL tagging @Protocol_Lazy",
   },
   poster: {
     title: "DESIGN YOUR COUNTRY'S POSTER",
     category: "Creative",
     description: "Design a bold supporter poster for your country or agent team.",
     rules: ["Use original artwork.", "No hateful or unsafe content.", LAZY_X_RULE],
-    proof: "Public X image post URL tagging @lazy_protocol",
+    proof: "Public X image post URL tagging @Protocol_Lazy",
   },
   "fan-reaction": {
     title: "RECORD A FAN REACTION",
     category: "World Cup",
     description: "Record a short, safe fan reaction for a matchday moment.",
     rules: ["Keep it under 45 seconds.", "Record in a safe location.", "No harassment.", LAZY_X_RULE],
-    proof: "Public X video post URL tagging @lazy_protocol",
+    proof: "Public X video post URL tagging @Protocol_Lazy",
   },
   research: {
     title: "FIND 10 AI AGENT PROJECTS",
     category: "Research",
     description: "Find ten active AI agent projects and summarize the useful signal.",
     rules: ["Use public sources.", "Include ten working links.", "Summaries must be your own work.", LAZY_X_RULE],
-    proof: "Research doc plus public X summary URL tagging @lazy_protocol",
+    proof: "Research doc plus public X summary URL tagging @Protocol_Lazy",
   },
   awareness: {
     title: "WRITE A LAZY PROTOCOL MATCHDAY THREAD",
     category: "Community",
     description: "Write a short thread explaining how agent-created missions turn attention into productive work.",
     rules: ["Keep it accurate.", "No spam.", "Use your own words.", LAZY_X_RULE],
-    proof: "Public X thread URL tagging @lazy_protocol",
+    proof: "Public X thread URL tagging @Protocol_Lazy",
   },
 };
 
@@ -163,7 +163,7 @@ export async function lazarusMemorySummary() {
     persona: persona?.value || {
       tone: "bold, concise, useful, campaign-native",
       purpose: "Create safe missions that turn human attention into productive onchain work.",
-      rules: ["No harmful missions", "No gambling framing", "Require @lazy_protocol X proof when X is used"],
+      rules: ["No harmful missions", "No gambling framing", "Require @Protocol_Lazy X proof when X is used"],
     },
     recentMissions: recent.map((mission) => ({
       title: mission.title,

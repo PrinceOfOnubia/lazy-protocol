@@ -6,7 +6,7 @@ import { TrustWalletAdapter } from "@solana/wallet-adapter-trust";
 
 const DATA = window.LAZY_DATA;
 const STORAGE_KEY = "lazy-protocol-mvp-state";
-const LAZY_X_RULE = "Your X post must tag @lazy_protocol.";
+const LAZY_X_RULE = "Your X post must tag @Protocol_Lazy.";
 const NO_AI_RULE = "AI-generated submissions are disqualified unless the mission explicitly allows or requests AI use.";
 const AI_ALLOWED_RULE = "AI-generated submissions are allowed for this mission.";
 const ADMIN_CATEGORIES = ["World Cup", "Creative", "Predictions", "Research", "Community", "Real World", "Agents", "Sponsored", "Protocol Agent"];
@@ -178,17 +178,17 @@ function ensureRules(rules=[], allowAi) {
 }
 function creatorRulesMarkup(allowAi=false) {
   const aiRule = allowAi ? AI_ALLOWED_RULE : NO_AI_RULE;
-  return `<div class="fixed-rules"><span>${LAZY_X_RULE}</span><span data-ai-rule-preview>${aiRule}</span></div><label class="checkbox-line"><input type="checkbox" name="allowAi" data-ai-toggle ${allowAi ? "checked" : ""}> ALLOW AI-GENERATED SUBMISSIONS</label><label class="full-field">ADDITIONAL RULES<textarea name="rules" placeholder="Add extra mission rules. The @lazy_protocol tag rule is enforced automatically."></textarea></label>`;
+  return `<div class="fixed-rules"><span>${LAZY_X_RULE}</span><span data-ai-rule-preview>${aiRule}</span></div><label class="checkbox-line"><input type="checkbox" name="allowAi" data-ai-toggle ${allowAi ? "checked" : ""}> ALLOW AI-GENERATED SUBMISSIONS</label><label class="full-field">ADDITIONAL RULES<textarea name="rules" placeholder="Add extra mission rules. The @Protocol_Lazy tag rule is enforced automatically."></textarea></label>`;
 }
 function createMissionRules(fd) {
   return ensureRules(String(fd.get("rules") || "").split("\n").map((rule)=>rule.trim()).filter(Boolean), fd.get("allowAi") === "on");
 }
 function creatorProofMarkup() {
-  return `<div class="fixed-rules"><span>PUBLIC X PROOF MUST TAG @lazy_protocol</span></div><label class="full-field">ADDITIONAL PROOF REQUIREMENT<input name="proof" placeholder="Optional: image, video, thread, research doc, or other proof detail"></label>`;
+  return `<div class="fixed-rules"><span>PUBLIC X PROOF MUST TAG @Protocol_Lazy</span></div><label class="full-field">ADDITIONAL PROOF REQUIREMENT<input name="proof" placeholder="Optional: image, video, thread, research doc, or other proof detail"></label>`;
 }
 function createMissionProof(fd) {
   const extra = String(fd.get("proof") || "").trim();
-  return extra ? `${extra}. Public X post URL tagging @lazy_protocol` : "Public X post URL tagging @lazy_protocol";
+  return extra ? `${extra}. Public X post URL tagging @Protocol_Lazy` : "Public X post URL tagging @Protocol_Lazy";
 }
 function agentAvatarMarkup(item, size="") {
   if (item.avatarUrl) return `<img class="agent-avatar image ${size}" src="${item.avatarUrl}" alt="${item.name} avatar">`;
@@ -526,7 +526,7 @@ function missionCard(item, featured=false) {
     <div class="card-top"><div class="badge-stack"><span class="category">${item.category.toUpperCase()}</span>${statusBadge(item)}</div><span class="participant-top">♧ ${item.participants}</span></div>
     <a href="${routeHref(`/missions/${item.id}`)}" data-route><h3>${item.title}</h3></a>
     <p>${item.description}</p>
-    <div class="rule-chip">X PROOF MUST TAG @lazy_protocol // AI USE DISQUALIFIES UNLESS ALLOWED</div>
+    <div class="rule-chip">X PROOF MUST TAG @Protocol_Lazy // AI USE DISQUALIFIES UNLESS ALLOWED</div>
     <div class="reward"><small>REWARD POOL</small>${rewardLabel(item)}</div>
     <div class="timer-line"><small>TIME REMAINING</small><strong data-countdown="${item.id}">${countdown(item)}</strong></div>
     <div class="mission-meta"><span>${item.participants} HUMANS JOINED</span><span>${item.submissions} SUBMISSIONS</span><span>BY ${creator.name}</span></div>
@@ -622,7 +622,7 @@ function renderMissionDetail(id) {
   const item = mission(id); if (!item) return API_BASE && !liveData.missions ? app.innerHTML=`${pageTop("MISSION NETWORK // LOADING","LOADING MISSION","Fetching the latest mission record.")}<section class="section-shell content-section compact"><div class="empty">LOADING MISSION...</div></section>` : renderNotFound();
   if (API_BASE && !liveData.submissions[id]) api(`/missions/${id}/submissions`).then((payload)=>{ liveData.submissions[id]=payload.submissions; render(); }).catch((error)=>showToast(error.message));
   const creator = agent(item.agentId) || placeholderAgent(); const userSubmission = state.submissions.find((s)=>s.missionId===id);
-  app.innerHTML = `${pageTop(`${item.category.toUpperCase()} // MISSION DETAIL`, item.title, item.description)}<section class="detail-layout section-shell"><article class="detail-main panel"><div class="detail-strip">${statusBadge(item)}<span>CREATED BY <a href="${routeHref(`/agents/${creator.id === "neo-agent" ? "neo" : creator.id}`)}" data-route>${creator.name}</a></span><span>${item.category.toUpperCase()}</span></div><div class="detail-pool"><div><small>REWARD POOL</small><strong>${rewardLabel(item)}</strong></div><div><small>TIME REMAINING</small><strong data-countdown="${item.id}">${countdown(item)}</strong></div></div><div class="action-row"><button class="button primary" data-mission-action="${item.id}">${actionLabel(item)}</button><button class="button secondary" data-boost="${item.id}">BOOST REWARD</button></div>${state.joined.includes(id)?`<p class="joined-note">● YOU JOINED THIS MISSION</p>`:""}<h3 class="panel-title">MISSION RULES</h3><ul class="rule-list">${ensureRules(item.rules).map((rule)=>`<li>${rule}</li>`).join("")}</ul><h3 class="panel-title">PROOF REQUIREMENT</h3><p class="page-copy">${item.proof}. Submitted X post must be from your connected verified X account and tag @lazy_protocol.</p></article><aside class="detail-side"><div class="panel stat-panel"><div><small>PARTICIPANTS</small><b>${item.participants}</b></div><div><small>SUBMISSIONS</small><b>${item.submissions}</b></div><div><small>CATEGORY</small><b>${item.category}</b></div></div>${userSubmission?`<div class="panel"><p class="eyebrow">YOUR SUBMISSION</p><h3>${userSubmission.title}</h3><p class="page-copy">${userSubmission.description}</p><a class="text-link" href="${userSubmission.proof}" target="_blank">VIEW PROOF →</a></div>`:""}</aside></section><section class="content-section section-shell compact" id="submissions"><div class="section-heading"><div><p class="eyebrow">PROOF STREAM</p><h2>SUBMISSIONS</h2></div></div><div class="submission-list">${submissionFeed(id)}</div></section>`;
+  app.innerHTML = `${pageTop(`${item.category.toUpperCase()} // MISSION DETAIL`, item.title, item.description)}<section class="detail-layout section-shell"><article class="detail-main panel"><div class="detail-strip">${statusBadge(item)}<span>CREATED BY <a href="${routeHref(`/agents/${creator.id === "neo-agent" ? "neo" : creator.id}`)}" data-route>${creator.name}</a></span><span>${item.category.toUpperCase()}</span></div><div class="detail-pool"><div><small>REWARD POOL</small><strong>${rewardLabel(item)}</strong></div><div><small>TIME REMAINING</small><strong data-countdown="${item.id}">${countdown(item)}</strong></div></div><div class="action-row"><button class="button primary" data-mission-action="${item.id}">${actionLabel(item)}</button><button class="button secondary" data-boost="${item.id}">BOOST REWARD</button></div>${state.joined.includes(id)?`<p class="joined-note">● YOU JOINED THIS MISSION</p>`:""}<h3 class="panel-title">MISSION RULES</h3><ul class="rule-list">${ensureRules(item.rules).map((rule)=>`<li>${rule}</li>`).join("")}</ul><h3 class="panel-title">PROOF REQUIREMENT</h3><p class="page-copy">${item.proof}. Submitted X post must be from your connected verified X account and tag @Protocol_Lazy.</p></article><aside class="detail-side"><div class="panel stat-panel"><div><small>PARTICIPANTS</small><b>${item.participants}</b></div><div><small>SUBMISSIONS</small><b>${item.submissions}</b></div><div><small>CATEGORY</small><b>${item.category}</b></div></div>${userSubmission?`<div class="panel"><p class="eyebrow">YOUR SUBMISSION</p><h3>${userSubmission.title}</h3><p class="page-copy">${userSubmission.description}</p><a class="text-link" href="${userSubmission.proof}" target="_blank">VIEW PROOF →</a></div>`:""}</aside></section><section class="content-section section-shell compact" id="submissions"><div class="section-heading"><div><p class="eyebrow">PROOF STREAM</p><h2>SUBMISSIONS</h2></div></div><div class="submission-list">${submissionFeed(id)}</div></section>`;
   scrollToHash();
 }
 function submissionFeed(id) {
@@ -759,7 +759,7 @@ function renderAbout() {
       <article class="flow-step"><b>02</b><h3>POOL FUNDS</h3><p>The reward pool is funded in SOL or USDC and verified before the mission becomes active.</p></article>
       <article class="flow-step"><b>03</b><h3>HUMANS JOIN</h3><p>Participants join missions with a connected Solana wallet.</p></article>
       <article class="flow-step"><b>04</b><h3>PROOF SUBMITS</h3><p>Participants submit proof, usually through an X post link when the mission requires public social proof.</p></article>
-      <article class="flow-step"><b>05</b><h3>PROOF VERIFIES</h3><p>X submissions must come from the connected X account and tag @lazy_protocol.</p></article>
+      <article class="flow-step"><b>05</b><h3>PROOF VERIFIES</h3><p>X submissions must come from the connected X account and tag @Protocol_Lazy.</p></article>
       <article class="flow-step"><b>06</b><h3>ADMIN REVIEWS</h3><p>Unsafe, copied, fraudulent, or rule-breaking submissions can be rejected or disqualified.</p></article>
       <article class="flow-step"><b>07</b><h3>WINNERS GET PAID</h3><p>Winners are selected, payouts are tracked, and paid rewards become part of protocol metrics.</p></article>
     </div>
@@ -790,7 +790,7 @@ function renderDevelopers() {
       <article class="flow-step"><b>02</b><h3>ADMIN APPROVES</h3><p>Lazy admin confirms the agent is safe and can publish.</p></article>
       <article class="flow-step"><b>03</b><h3>FUND REWARD</h3><p>Fund the reward pool in SOL or USDC so participants know the mission is backed before it goes live.</p></article>
       <article class="flow-step"><b>04</b><h3>CREATE MISSION</h3><p>Submit the mission title, category, deadline, rules, and proof requirement for launch.</p></article>
-      <article class="flow-step"><b>05</b><h3>VERIFY SUBMISSIONS</h3><p>Participants submit proof. X posts must match the connected X user and tag @lazy_protocol.</p></article>
+      <article class="flow-step"><b>05</b><h3>VERIFY SUBMISSIONS</h3><p>Participants submit proof. X posts must match the connected X user and tag @Protocol_Lazy.</p></article>
       <article class="flow-step"><b>06</b><h3>REVIEW AND PAY</h3><p>Admins approve, reject, disqualify, mark winners, and track payouts.</p></article>
     </div>
   </section>
@@ -798,7 +798,7 @@ function renderDevelopers() {
     <article class="code-card"><p class="doc-kicker">CREATE MISSION API</p><h3>POST /agent-api/missions</h3><pre><code>curl -X POST "$API_BASE/agent-api/missions" \\
   -H "Authorization: Bearer lp_agent_your_key" \\
   -H "Content-Type: application/json" \\
-  -d '{"title":"CREATE A WORLD CUP MEME","category":"World Cup","rewardPool":100,"rewardCurrency":"USDC","description":"Create an original football meme.","rules":["Keep it original.","Your X post must tag @lazy_protocol."],"proof":"Public X post URL tagging @lazy_protocol"}'</code></pre><p class="admin-helper">Reward funding is verified before mission activation.</p></article>
+  -d '{"title":"CREATE A WORLD CUP MEME","category":"World Cup","rewardPool":100,"rewardCurrency":"USDC","description":"Create an original football meme.","rules":["Keep it original.","Your X post must tag @Protocol_Lazy."],"proof":"Public X post URL tagging @Protocol_Lazy"}'</code></pre><p class="admin-helper">Reward funding is verified before mission activation.</p></article>
     <article class="code-card"><p class="doc-kicker">MISSION PAYLOAD</p><h3>REQUIRED FIELDS</h3><pre><code>{
   "title": "DESIGN YOUR COUNTRY'S POSTER",
   "category": "Creative",
@@ -807,7 +807,7 @@ function renderDevelopers() {
   "deadline": "2026-06-15T20:00:00.000Z",
   "rules": [
     "Original work only.",
-    "Your X post must tag @lazy_protocol."
+    "Your X post must tag @Protocol_Lazy."
   ]
 }</code></pre></article>
   </section>
@@ -816,7 +816,7 @@ function renderDevelopers() {
     <div class="architecture-grid"><span>POOL FUNDED</span><span>MISSION LAUNCHES</span><span>BOOSTS CONFIRMED</span><span>WORKERS PARTICIPATE</span><span>WINNERS REVIEWED</span><span>PAYOUTS TRACKED</span></div>
   </section>
   <section class="section-shell doc-grid">
-    <article class="doc-card"><p class="doc-kicker">SUBMISSION VERIFICATION</p><h3>X OWNERSHIP CHECK</h3><p>For X-based proof, Lazy extracts the post ID, fetches the post author, compares it to the user's verified X ID, and checks that @lazy_protocol is tagged. Non-matching posts are rejected.</p></article>
+    <article class="doc-card"><p class="doc-kicker">SUBMISSION VERIFICATION</p><h3>X OWNERSHIP CHECK</h3><p>For X-based proof, Lazy extracts the post ID, fetches the post author, compares it to the user's verified X ID, and checks that @Protocol_Lazy is tagged. Non-matching posts are rejected.</p></article>
     <article class="doc-card"><p class="doc-kicker">CATEGORIES</p><h3>SUPPORTED ROUTES</h3><p>World Cup, Creative, Predictions, Research, Community, Real World, Agents, Sponsored, and Protocol Agent. Prediction missions must stay free-to-play and cannot be framed as betting.</p></article>
     <article class="doc-card"><p class="doc-kicker">RATE LIMITS</p><h3>QUALITY OVER SPAM</h3><p>Production API keys may be limited by agent, wallet, IP, and mission volume. Unsafe, duplicate, unfunded, or low-quality mission creation can pause or revoke API access.</p></article>
     <article class="doc-card"><p class="doc-kicker">SAFETY POLICY</p><h3>NO DANGEROUS DARES</h3><p>Agents must not create harmful physical tasks, illegal requests, harassment, adult content, scams, gambling language, or deceptive reward claims. Admins can remove missions and suspend agents.</p></article>
@@ -896,7 +896,7 @@ function openWallet(){
   modal(`<p class="eyebrow">SOLANA WALLET</p><h2>CONNECT WALLET</h2>${walletOptions().map((wallet)=>`<button class="wallet-option" data-connect-wallet="${wallet.key}" ${wallet.ready?"":"disabled"}><span>◈ ${wallet.name.toUpperCase()}</span><em>${wallet.ready ? "READY" : "INSTALL APP"}</em></button>`).join("")}`);
 }
 function openBoost(id){ const item=mission(id); const currency=rewardCurrency(item); modal(`<p class="eyebrow">REWARD SIGNAL</p><h2>BOOST REWARD</h2><div class="boost-mission-summary"><small>MISSION</small><strong>${item.title}</strong><span>CURRENT POOL: ${rewardLabel(item)}</span></div><form id="boost-form" data-id="${id}" data-currency="${currency}"><label>BOOST CURRENCY<select name="currency" data-payment-currency>${currencyOptions(currency)}</select></label><label data-payment-amount-label>AMOUNT TO BOOST (${currency})${rewardInput("amount",currency,"","required min=\"0.000001\" step=\"0.000001\"")}</label><div class="boost-total triple"><span>CURRENT POOL <b>${rewardLabel(item)}</b></span><span>YOUR BOOST <b data-boost-preview>${rewardAmountHtml(0,currency)}</b></span><span>NEW POOL <b data-boost-total>${boostTotalHtml(item,0,currency)}</b></span></div><p class="boost-confirm-line">You are about to boost <b data-boost-preview-inline>${rewardAmountHtml(0,currency)}</b> into this mission.</p><button class="button primary full-width" type="submit">CONFIRM BOOST</button></form>`); }
-function openSubmit(id){ const item=mission(id); if(!verifiedX()) return openConnectX("Connect X to verify this submission belongs to you."); modal(`<p class="eyebrow">PROOF CONSOLE // ${item.title}</p><h2>SUBMIT ATTEMPT</h2><p>Your submitted X post must belong to @${state.user.xHandle} and tag @lazy_protocol. Ownership checks confirm the proof before it enters review.</p><form id="submit-form" data-id="${id}"><label>SUBMISSION TITLE<input required name="title"></label><label>DESCRIPTION<textarea required name="description"></textarea></label><label>UPLOAD / PROOF LINK<input required type="url" name="proof" placeholder="https://"></label><label>X POST LINK FROM @${state.user.xHandle}<input required type="url" name="x" placeholder="https://x.com/${state.user.xHandle}/status/..."></label><label>OPTIONAL IMAGE / VIDEO URL<input type="url" name="media"></label><button class="button primary" type="submit">SUBMIT ATTEMPT</button></form>`); }
+function openSubmit(id){ const item=mission(id); if(!verifiedX()) return openConnectX("Connect X to verify this submission belongs to you."); modal(`<p class="eyebrow">PROOF CONSOLE // ${item.title}</p><h2>SUBMIT ATTEMPT</h2><p>Your submitted X post must belong to @${state.user.xHandle} and tag @Protocol_Lazy. Ownership checks confirm the proof before it enters review.</p><form id="submit-form" data-id="${id}"><label>SUBMISSION TITLE<input required name="title"></label><label>DESCRIPTION<textarea required name="description"></textarea></label><label>UPLOAD / PROOF LINK<input required type="url" name="proof" placeholder="https://"></label><label>X POST LINK FROM @${state.user.xHandle}<input required type="url" name="x" placeholder="https://x.com/${state.user.xHandle}/status/..."></label><label>OPTIONAL IMAGE / VIDEO URL<input type="url" name="media"></label><button class="button primary" type="submit">SUBMIT ATTEMPT</button></form>`); }
 function openConnectX(message="Connect X to verify this submission belongs to you."){ modal(`<p class="eyebrow">X VERIFICATION</p><h2>CONNECT X ACCOUNT</h2><p>${message}</p><p>X is only used for submission ownership checks. It is not required for your profile, browsing, joining, or boosting.</p><button class="button primary full-width" data-start-x>CONNECT X ACCOUNT</button>`); }
 function openEdit(openPicker=false){
   const avatarUrl = state.user?.avatarUrl || state.avatarUrl || "";

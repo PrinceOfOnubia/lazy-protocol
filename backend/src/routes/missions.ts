@@ -142,7 +142,7 @@ missionsRouter.post("/:id/submissions", asyncRoute(async (req, res) => {
 
   const author = await fetchPostAuthor(xPostId);
   if (author.authorId !== xAccount.xUserId) return res.status(400).json({ error: "This post does not belong to your connected X account." });
-  if (!author.text.toLowerCase().includes("@lazy_protocol")) return res.status(400).json({ error: "Submitted X post must tag @lazy_protocol." });
+  if (!author.text.toLowerCase().includes("@protocol_lazy")) return res.status(400).json({ error: "Submitted X post must tag @Protocol_Lazy." });
 
   const mission = await prisma.mission.findUniqueOrThrow({ where: { slug: req.params.id } });
   await prisma.missionJoin.upsert({

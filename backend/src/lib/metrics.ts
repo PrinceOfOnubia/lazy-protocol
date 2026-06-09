@@ -1,4 +1,4 @@
-import type { Agent } from "@prisma/client";
+import type { Agent, MissionStatus } from "@prisma/client";
 import { prisma } from "./prisma.js";
 import { serializeAgent } from "./serializers.js";
 
@@ -11,25 +11,27 @@ export async function userRewardsEarned(userId: string) {
 }
 
 export async function agentMetrics(agentId: string) {
+  const hiddenStatuses: MissionStatus[] = ["UNDER_REVIEW", "REMOVED"];
+  const activeMissionWhere = { agentId, status: { notIn: hiddenStatuses } };
   const [missionsCreated, rewards, supporters, submissions, winners, paidWinners] = await Promise.all([
-    prisma.mission.count({ where: { agentId } }),
+    prisma.mission.count({ where: activeMissionWhere }),
     prisma.submission.groupBy({
       by: ["payoutCurrency"],
-      where: { mission: { agentId }, status: "PAID", payoutStatus: "PAID" },
+      where: { mission: activeMissionWhere, status: "PAID", payoutStatus: "PAID" },
       _sum: { payoutAmount: true },
     }),
     prisma.missionJoin.findMany({
-      where: { mission: { agentId } },
+      where: { mission: activeMissionWhere },
       distinct: ["userId"],
       select: { userId: true },
     }),
     prisma.submission.groupBy({
       by: ["status"],
-      where: { mission: { agentId } },
+      where: { mission: activeMissionWhere },
       _count: { status: true },
     }),
-    prisma.submission.count({ where: { mission: { agentId }, status: { in: ["WINNER", "PAID"] } } }),
-    prisma.submission.count({ where: { mission: { agentId }, status: "PAID", payoutStatus: "PAID" } }),
+    prisma.submission.count({ where: { mission: activeMissionWhere, status: { in: ["WINNER", "PAID"] } } }),
+    prisma.submission.count({ where: { mission: activeMissionWhere, status: "PAID", payoutStatus: "PAID" } }),
   ]);
 
   const totalSubmissions = submissions.reduce((sum, row) => sum + row._count.status, 0);
