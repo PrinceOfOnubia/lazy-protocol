@@ -991,7 +991,7 @@ document.addEventListener("click",(event)=>{
   if(event.target.closest("[data-mobile-menu-close]")){closeMobileMenu();return;}
   if(event.target.closest("[data-connect-x]")){ if(!state.wallet) return openWallet(); return openConnectX(); }
   if(event.target.closest("[data-start-x]")){ api("/auth/x/start",{method:"POST",body:JSON.stringify({wallet:state.wallet})}).then((payload)=>{ location.href=payload.url; }).catch((error)=>showToast(error.message)); return; }
-  if(event.target.closest("[data-disconnect-x]")){ if(!state.wallet) return openWallet(); if(!window.confirm("Disconnect your X account from this Lazy profile? You will need to reconnect X before submitting mission attempts.")) return; api("/auth/x",{method:"DELETE",body:JSON.stringify({wallet:state.wallet})}).then((payload)=>{state.user=payload.user;save();render();showToast("X ACCOUNT DISCONNECTED");}).catch((error)=>showToast(error.message)); return; }
+  if(event.target.closest("[data-disconnect-x]")){ if(!state.wallet) return openWallet(); if(!window.confirm("Disconnect your X account from this Lazy profile? You will need to reconnect X before submitting mission attempts.")) return; api("/auth/x/disconnect",{method:"POST",body:JSON.stringify({wallet:state.wallet})}).then((payload)=>{state.user=payload.user;save();render();showToast("X ACCOUNT DISCONNECTED");}).catch((error)=>showToast(error.message)); return; }
   if(event.target.closest("[data-disconnect]")){disconnectWallet();return;}
   const action=event.target.closest("[data-mission-action]"); if(action){ missionAction(action.dataset.missionAction); return; }
   const boost=event.target.closest("[data-boost]"); if(boost)return openBoost(boost.dataset.boost);
