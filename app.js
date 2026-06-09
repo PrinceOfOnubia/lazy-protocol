@@ -98,7 +98,20 @@ function adminSignerReady() {
   return Boolean(state.wallet && activeWallet?.signMessage);
 }
 function renderAdminAuthGate(message="Reconnect your approved admin wallet to sign admin access.") {
-  app.innerHTML = `${pageTop("ADMIN // SIGNATURE REQUIRED","ADMIN ACCESS","${message}")}<section class="section-shell content-section compact"><div class="panel"><p class="page-copy">Admin access now requires a short-lived signature from an allowlisted Solana wallet. This protects the admin panel from spoofed wallet headers after a page refresh.</p><div class="action-row"><button class="button primary" data-open-wallet>${state.wallet ? "RECONNECT & SIGN" : "CONNECT ADMIN WALLET"}</button><a class="button secondary" href="${routeHref("/profile")}" data-route>VIEW PROFILE</a></div></div></section>`;
+  const action = adminSignerReady() ? "SIGN & ENTER ADMIN" : state.wallet ? "RECONNECT & SIGN" : "CONNECT ADMIN WALLET";
+  app.innerHTML = `${pageTop("ADMIN // SIGNATURE REQUIRED","ADMIN ACCESS",message)}<section class="section-shell content-section compact"><div class="panel"><p class="page-copy">Admin access now requires a short-lived signature from an allowlisted Solana wallet. This protects the admin panel from spoofed wallet headers after a page refresh.</p><div class="action-row"><button class="button primary" data-admin-sign>${action}</button><a class="button secondary" href="${routeHref("/profile")}" data-route>VIEW PROFILE</a></div></div></section>`;
+}
+async function enterAdminWithSignature() {
+  if (!adminSignerReady()) return openWallet();
+  try {
+    adminProof = null;
+    await adminAuthHeaders();
+    liveData.admin = null;
+    renderAdmin();
+  } catch (error) {
+    showToast(error.message || "ADMIN SIGNATURE FAILED");
+    renderAdminAuthGate(error.message || "Admin signature failed.");
+  }
 }
 function money(value) { return `$${Number(value).toLocaleString()}`; }
 function sol(value) { return `${Number(value).toLocaleString(undefined,{ maximumFractionDigits: 4 })} SOL`; }
@@ -935,6 +948,7 @@ function render(){
 
 document.addEventListener("click",(event)=>{
   const route=event.target.closest("[data-route]"); if(route){event.preventDefault();navigate(route.getAttribute("href").replace(base,"").replace(/^#/,""));return;}
+  if(event.target.closest("[data-admin-sign]")) return enterAdminWithSignature();
   if(event.target.closest("[data-open-wallet]")) return openWallet();
   if(event.target.closest("[data-close-modal]")||event.target.classList.contains("modal-backdrop")) return closeModal();
   const confirmTarget=event.target.closest("[data-confirm]"); if(confirmTarget && !window.confirm(confirmTarget.dataset.confirm)) return;
